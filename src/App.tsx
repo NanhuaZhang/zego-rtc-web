@@ -145,11 +145,6 @@ function App() {
       } as any);
 
       const localStreamID = `${roomID}_${userID}`;
-
-      await zg.startPublishingStream(localStreamID, stream);
-      setLocalStream(stream);
-      setIsInRoom(true);
-
       await zg.loginRoom(
         roomID,
         loginToken,
@@ -182,6 +177,10 @@ function App() {
       } catch (e) {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
       }
+
+      await zg.startPublishingStream(localStreamID, stream);
+      setLocalStream(stream);
+      setIsInRoom(true);
 
     } catch (e: any) {
       console.error(e);
