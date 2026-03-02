@@ -27,13 +27,13 @@ exports.handler = async (event) => {
     const agent = ZegoAIAgent.getInstance();
     let agentInstanceId = roomAgentInstanceMap.get(roomID);
 
-    const rtc = rtcInfo || {
+    // 如果前端没有传 RTC 信息，这里根据房间做一个最简单的占位结构
+    const rtc = {
       RoomId: roomID,
-      AgentStreamId: randomId('stream_agent_'),
+      AgentStreamId: rtcInfo.AgentStreamId || randomId('stream_agent_'),
       AgentUserId: CONSTANTS.AGENT_ID,
-      UserStreamId: '',
+      UserStreamId: rtcInfo.UserStreamId,
     };
-
     let result;
     if (!agentInstanceId) {
       result = await agent.createGroupAgentInstance(CONSTANTS.AGENT_ID, userID, rtc);
