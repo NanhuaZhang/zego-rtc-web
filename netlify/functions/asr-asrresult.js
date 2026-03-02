@@ -20,32 +20,11 @@ exports.handler = async (event) => {
 
     console.log('[netlify asrresult] 收到识别结果：', { UserId, MessageId, Text });
 
-    if (Text.includes('你好')) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          AddHistory: {
-            Text: '小红说:' + Text,
-          },
-        }),
-      };
-    }
-
-    if (Text.includes('请问')) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          SendLLM: {
-            Text: '小红说:' + Text,
-          },
-        }),
-      };
-    }
-
     return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
+      SendLLM: {
+        Text:  Text,
+      },
+    }
   } catch (e) {
     console.error('[netlify asrresult] 处理失败：', e);
     return {
