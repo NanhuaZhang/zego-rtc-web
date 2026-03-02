@@ -220,7 +220,7 @@ class ZegoAIAgent {
         {
           Type: 'HTTP',
           Position: 'ASR_POST',
-          Url: 'https://vocal-entremet-c4af35.netlify.app/api/asr-callback',
+          Url: 'https://zego-rtc-web.netlify.app/.netlify/functions/asr-asrresult',
         },
       ],
     };

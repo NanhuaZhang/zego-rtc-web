@@ -103,6 +103,45 @@ app.post('/group-agent/enter', async (req, res) => {
   }
 });
 
+// ====== ASR 回调示例 ======
+// 用于自定义语音识别后的行为：
+// - 文本包含“你好”：只写入历史，不触发 LLM 回复
+// - 文本包含“请问”：把内容发给 LLM，让 Agent 回复
+// - 否则：返回空对象，Agent 不作处理
+app.post('/asr/asrresult', (req, res) => {
+  try {
+    const data = (req.body && req.body.Data) || {};
+    const { UserId, MessageId, Text } = data;
+
+    if (!Text) {
+      return res.json({});
+    }
+
+    console.log('[asrresult] 收到识别结果：', { UserId, MessageId, Text });
+
+    if (Text.includes('你好')) {
+      return res.json({
+        AddHistory: {
+          Text: '小红说:' + Text,
+        },
+      });
+    }
+
+    if (Text.includes('请问')) {
+      return res.json({
+        SendLLM: {
+          Text: '小红说:' + Text,
+        },
+      });
+    }
+
+    return res.json({});
+  } catch (e) {
+    console.error('[asrresult] 处理失败：', e);
+    return res.json({});
+  }
+});
+
 app.listen(port, () => {
   console.log(`[zego-token-server] 启动成功，端口: ${port}`);
 });
