@@ -9,6 +9,8 @@ type ZegoRemoteStream = {
   userName?: string;
 };
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 const APP_ID_PLACEHOLDER = Number(process.env.REACT_APP_ZEGO_APP_ID || 1814816985); // 在 .env 里配置 REACT_APP_ZEGO_APP_ID
 const SERVER_PLACEHOLDER = process.env.REACT_APP_ZEGO_SERVER || 'wss://accesshub-wss.zego.im/accesshub'; // 在 .env 里配置 REACT_APP_ZEGO_SERVER
 const TOKEN_PLACEHOLDER = process.env.REACT_APP_ZEGO_TOKEN || ''; // demo：可在 .env 里配置一个固定 token，正式建议从服务端获取
@@ -93,8 +95,11 @@ function App() {
       // 如果没有在前端配置 token，则优先从本地 Express 服务获取
       let loginToken = token;
       if (!loginToken) {
+        const tokenUrl = IS_DEV
+          ? `http://localhost:3001/token?userID=${encodeURIComponent(userID)}`
+          : `/.netlify/functions/token?userID=${encodeURIComponent(userID)}`;
         const resp = await fetch(
-          `http://localhost:3001/token?userID=${encodeURIComponent(userID)}`
+          tokenUrl
         );
         if (!resp.ok) {
           throw new Error('从本地服务获取 token 失败');
@@ -119,7 +124,10 @@ function App() {
       // 在登录房间前，将完整的 RTC 信息（包含用户 streamID）传给本地服务，
       // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
       try {
-        await fetch('http://localhost:3001/group-agent/enter', {
+        const groupAgentEnterUrl = IS_DEV
+          ? 'http://localhost:3001/group-agent/enter'
+          : '/.netlify/functions/group-agent-enter';
+        await fetch(groupAgentEnterUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
