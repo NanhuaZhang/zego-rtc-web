@@ -124,25 +124,25 @@ function App() {
       // 在登录房间前，将完整的 RTC 信息（包含用户 streamID）传给本地服务，
       // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
       try {
-        const groupAgentEnterUrl = IS_DEV
-          ? 'http://localhost:3001/group-agent/enter'
-          : '/.netlify/functions/group-agent-enter';
-        await fetch(groupAgentEnterUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            roomID,
-            userID,
-            rtcInfo: {
-              RoomId: roomID,
-              AgentStreamId: '',
-              AgentUserId: 'ai_agent_example_1',
-              UserStreamId: localStreamID,
-            },
-          }),
-        });
+        // const groupAgentEnterUrl = IS_DEV
+        //   ? 'http://localhost:3001/group-agent/enter'
+        //   : '/.netlify/functions/group-agent-enter';
+        // await fetch(groupAgentEnterUrl, {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //   },
+        //   body: JSON.stringify({
+        //     roomID,
+        //     userID,
+        //     rtcInfo: {
+        //       RoomId: roomID,
+        //       AgentStreamId: '',
+        //       AgentUserId: 'ai_agent_example_1',
+        //       UserStreamId: localStreamID,
+        //     },
+        //   }),
+        // });
       } catch (e) {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
       }
