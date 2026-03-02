@@ -95,6 +95,13 @@ class ZegoAIAgent {
         Messages: [],
         WindowSize: 10,
       },
+      CustomNodes: [
+        {
+          Type: 'HTTP',
+          Position: 'ASR_POST',
+          Url: 'https://vocal-entremet-c4af35.netlify.app/api/asr-callback',
+        },
+      ],
     };
     return this.sendRequest(action, body);
   }
