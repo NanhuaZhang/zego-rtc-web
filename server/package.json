@@ -15,13 +15,19 @@
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "zego-express-engine-webrtc": "^3.12.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "axios": "^1.7.9"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "../node_modules/.bin/react-scripts start",
+    "build": "../node_modules/.bin/react-scripts build",
+    "test": "../node_modules/.bin/react-scripts test",
+    "eject": "../node_modules/.bin/react-scripts eject",
+    "server": "node index.js"
   },
   "eslintConfig": {
     "extends": [
