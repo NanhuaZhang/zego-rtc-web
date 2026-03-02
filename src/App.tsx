@@ -59,15 +59,15 @@ function App() {
               const streamID = streamInfo.streamID as string;
               try {
                 const mediaStream = (await engine.startPlayingStream(streamID)) as MediaStream;
-                // 创建媒体流播放组件对象，用于播放远端媒体流 。
-                const remoteView = engine.createRemoteStreamView(mediaStream);
-                const divs = document.getElementsByClassName('zego-remote-grid');
-                const newStream = document.createElement("div");
-                newStream.id = streamID;
-                divs[0].appendChild(newStream);
-
-                // 将播放组件挂载到页面，"remote-video" 为组件容器 <div> 元素的 id 。
-                remoteView.play(streamID);
+                // // 创建媒体流播放组件对象，用于播放远端媒体流 。
+                // const remoteView = engine.createRemoteStreamView(mediaStream);
+                // const divs = document.getElementsByClassName('zego-remote-grid');
+                // const newStream = document.createElement("div");
+                // newStream.id = streamID;
+                // divs[0].appendChild(newStream);
+                //
+                // // 将播放组件挂载到页面，"remote-video" 为组件容器 <div> 元素的 id 。
+                // remoteView.play(streamID);
 
                 return {
                   ok: true,
