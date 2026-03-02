@@ -146,6 +146,9 @@ function App() {
 
       const localStreamID = `${roomID}_${userID}`;
 
+      await zg.startPublishingStream(localStreamID, stream);
+      setLocalStream(stream);
+      setIsInRoom(true);
 
       await zg.loginRoom(
         roomID,
@@ -153,10 +156,6 @@ function App() {
         { userID, userName } as any,
         { userUpdate: true } as any
       );
-
-      await zg.startPublishingStream(localStreamID, stream);
-      setLocalStream(stream);
-      setIsInRoom(true);
 
       // 在登录房间前，将完整的 RTC 信息（包含用户 streamID）传给本地服务，
       // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
