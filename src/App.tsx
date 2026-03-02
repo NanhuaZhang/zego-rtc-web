@@ -47,33 +47,58 @@ function App() {
     // 监听远端流更新事件，实现多人通话
     engine.on(
       'roomStreamUpdate' as any,
-      (
+      async (
         _roomID: string,
         updateType: 'ADD' | 'DELETE',
         streamList: any[],
         _extendedData: string
       ) => {
-        setRemoteStreams(prev => {
-          const map = new Map(prev.map(s => [s.streamID, s]));
-          if (updateType === 'ADD') {
-            streamList.forEach(streamInfo => {
-              const { streamID, user } = streamInfo;
-              if (!map.has(streamID)) {
-                map.set(streamID, {
-                  streamID,
-                  mediaStream: streamInfo.mediaStream as MediaStream,
-                  userID: user?.userID,
-                  userName: user?.userName,
-                });
+        if (updateType === 'ADD') {
+          const playResults = await Promise.all(
+            streamList.map(async streamInfo => {
+              const streamID = streamInfo.streamID as string;
+              try {
+                const mediaStream = (await engine.startPlayingStream(streamID)) as MediaStream;
+                return {
+                  ok: true,
+                  stream: {
+                    streamID,
+                    mediaStream,
+                    userID: streamInfo.user?.userID,
+                    userName: streamInfo.user?.userName,
+                  } as ZegoRemoteStream,
+                } as const;
+              } catch (e) {
+                console.error('startPlayingStream 失败', streamID, e);
+                return { ok: false, streamID } as const;
+              }
+            })
+          );
+
+          setRemoteStreams(prev => {
+            const map = new Map(prev.map(s => [s.streamID, s]));
+            playResults.forEach(r => {
+              if (r.ok && !map.has(r.stream.streamID)) {
+                map.set(r.stream.streamID, r.stream);
               }
             });
-          } else if (updateType === 'DELETE') {
-            streamList.forEach(streamInfo => {
-              map.delete(streamInfo.streamID);
-            });
-          }
-          return Array.from(map.values());
-        });
+            return Array.from(map.values());
+          });
+        } else if (updateType === 'DELETE') {
+          streamList.forEach(streamInfo => {
+            const streamID = streamInfo.streamID as string;
+            try {
+              engine.stopPlayingStream(streamID);
+            } catch (e) {
+              console.error('stopPlayingStream 失败', streamID, e);
+            }
+          });
+
+          setRemoteStreams(prev => {
+            const deleteSet = new Set(streamList.map(s => s.streamID as string));
+            return prev.filter(s => !deleteSet.has(s.streamID));
+          });
+        }
       }
     );
 
@@ -121,31 +146,6 @@ function App() {
 
       const localStreamID = `${roomID}_${userID}`;
 
-      // 在登录房间前，将完整的 RTC 信息（包含用户 streamID）传给本地服务，
-      // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
-      try {
-        // const groupAgentEnterUrl = IS_DEV
-        //   ? 'http://localhost:3001/group-agent/enter'
-        //   : '/.netlify/functions/group-agent-enter';
-        // await fetch(groupAgentEnterUrl, {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     roomID,
-        //     userID,
-        //     rtcInfo: {
-        //       RoomId: roomID,
-        //       AgentStreamId: '',
-        //       AgentUserId: 'ai_agent_example_1',
-        //       UserStreamId: localStreamID,
-        //     },
-        //   }),
-        // });
-      } catch (e) {
-        console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
-      }
 
       await zg.loginRoom(
         roomID,
@@ -157,6 +157,33 @@ function App() {
       await zg.startPublishingStream(localStreamID, stream);
       setLocalStream(stream);
       setIsInRoom(true);
+
+      // 在登录房间前，将完整的 RTC 信息（包含用户 streamID）传给本地服务，
+      // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
+      try {
+        const groupAgentEnterUrl = IS_DEV
+          ? 'http://localhost:3001/group-agent/enter'
+          : '/.netlify/functions/group-agent-enter';
+        await fetch(groupAgentEnterUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomID,
+            userID,
+            rtcInfo: {
+              RoomId: roomID,
+              AgentStreamId: '',
+              AgentUserId: 'ai_agent_example_1',
+              UserStreamId: localStreamID,
+            },
+          }),
+        });
+      } catch (e) {
+        console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
+      }
+
     } catch (e: any) {
       console.error(e);
       setError(e?.message || '加入房间失败，请检查配置');
@@ -170,6 +197,15 @@ function App() {
     if (!zg) return;
 
     try {
+      // 停止拉取远端流
+      remoteStreams.forEach(s => {
+        try {
+          zg.stopPlayingStream(s.streamID);
+        } catch (e) {
+          console.error('stopPlayingStream 失败', s.streamID, e);
+        }
+      });
+
       if (localStream) {
         const localStreamID = `${roomID}_${userID}`;
         await zg.stopPublishingStream(localStreamID);
@@ -184,7 +220,7 @@ function App() {
     } finally {
       setIsInRoom(false);
     }
-  }, [localStream, roomID, userID]);
+  }, [localStream, remoteStreams, roomID, userID]);
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;
@@ -326,6 +362,11 @@ function App() {
                   ref={el => {
                     if (el && stream.mediaStream) {
                       el.srcObject = stream.mediaStream;
+                      // 尽量触发播放，避免部分浏览器自动播放策略导致无声/黑屏
+                      const p = el.play();
+                      if (p && typeof (p as any).catch === 'function') {
+                        (p as any).catch(() => {});
+                      }
                     }
                   }}
                 />
