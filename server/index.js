@@ -108,7 +108,7 @@ app.post('/group-agent/enter', async (req, res) => {
 // - 文本包含“你好”：只写入历史，不触发 LLM 回复
 // - 文本包含“请问”：把内容发给 LLM，让 Agent 回复
 // - 否则：返回空对象，Agent 不作处理
-app.post('/asr/asrresult', (req, res) => {
+app.post('/asr-asrresult', (req, res) => {
   try {
     const data = (req.body && req.body.Data) || {};
     const { UserId, MessageId, Text } = data;

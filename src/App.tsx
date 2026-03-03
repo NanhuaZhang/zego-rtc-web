@@ -362,7 +362,7 @@ function App() {
           <h2>远端视频（多人）</h2>
           <div className="zego-remote-grid">
             {remoteStreams.map(stream => (
-              <div key={stream.streamID} className="zego-remote-item">
+              <div key={stream.streamID} id={stream.streamID} className="zego-remote-item">
                 <video
                   autoPlay
                   playsInline

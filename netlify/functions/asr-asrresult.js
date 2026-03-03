@@ -21,9 +21,11 @@ exports.handler = async (event) => {
     console.log('[netlify asrresult] 收到识别结果：', { UserId, MessageId, Text });
 
     return {
-      SendLLM: {
-        Text:  Text,
-      },
+      statusCode: 200,
+      body: JSON.stringify(
+          { SendLLM: {
+              Text:  Text,
+            }}),
     }
   } catch (e) {
     console.error('[netlify asrresult] 处理失败：', e);
