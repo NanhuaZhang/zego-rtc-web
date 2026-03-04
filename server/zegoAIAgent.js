@@ -238,7 +238,7 @@ class ZegoAIAgent {
     const body = {
       AgentInstanceId: agentInstanceId,
       UserId: userId,
-      RTC: rtcInfo,
+      UserStreamId: rtcInfo.UserStreamId,
     };
     const result = await this.sendRequest(action, body);
     return result;
