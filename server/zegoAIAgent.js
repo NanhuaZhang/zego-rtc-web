@@ -255,7 +255,7 @@ class ZegoAIAgent {
       },
       "RecordOutputParams": {
         "OutputFileFormat": "mp3",
-        // "OutputFolder": roomId+"/",
+        "OutputFolder": roomId + "/",
       },
       StorageParams: {
         "Vendor": 10,
@@ -266,7 +266,6 @@ class ZegoAIAgent {
         "EndPoint": process.env.TOS_ENDPOINT
       }
     };
-    console.log(body)
     return this.sendRequest(action, body, this.cloudUrl);
   }
 
