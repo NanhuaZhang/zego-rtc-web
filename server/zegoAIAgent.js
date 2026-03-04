@@ -54,6 +54,8 @@ class ZegoAIAgent {
     this.appId = config.appId;
     this.serverSecret = config.serverSecret;
     this.baseUrl = 'https://aigc-aiagent-api.zegotech.cn';
+    this.cloudUrl = 'https://cloudrecord-api.zego.im';
+    this.rtcUrl = 'https://rtc-api.zego.im';
   }
 
   static getInstance() {
@@ -104,6 +106,7 @@ class ZegoAIAgent {
 
   buildUrl(action, commonParams, baseUrl) {
     const params = new URLSearchParams({
+      ...commonParams,
       Action: action,
       AppId: commonParams.AppId.toString(),
       SignatureNonce: commonParams.SignatureNonce,
@@ -250,7 +253,7 @@ class ZegoAIAgent {
       },
       "RecordOutputParams": {
         "OutputFileFormat": "mp3",
-        "OutputFolder": roomId+"/",
+        // "OutputFolder": roomId+"/",
       },
       StorageParams: {
         "Vendor": 10,
@@ -261,7 +264,8 @@ class ZegoAIAgent {
         "EndPoint": process.env.TOS_ENDPOINT
       }
     };
-    return this.sendRequest(action, body);
+    console.log(body)
+    return this.sendRequest(action, body, this.cloudUrl);
   }
 
   async stopRecord(taskId) {
@@ -269,14 +273,28 @@ class ZegoAIAgent {
     const body = {
       TaskId: taskId
     };
-    return this.sendRequest(action, body);
+    return this.sendRequest(action, body, this.cloudUrl);
   }
 
   async describeUserNum(roomId) {
     const action = 'DescribeUserNum';
     const body = {
     };
-    return this.sendRequest(action, body, undefined,'Get');
+
+    const commonParams = this.generateCommonParams(action);
+    const url = this.buildUrl(action, {...commonParams,'RoomId[]':roomId}, this.rtcUrl);
+
+    const config = {
+      method: "Get",
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: body || undefined,
+    };
+
+    const response = await axios(config);
+    return response.data;
   }
 }
 

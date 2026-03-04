@@ -21,6 +21,7 @@ function App() {
   const [roomID, setRoomID] = useState<string>('demo-room');
   const [userID, setUserID] = useState<string>(() => `user_${Math.floor(Math.random() * 10000)}`);
   const [userName, setUserName] = useState<string>('Demo User');
+  const [taskId, setTaskId] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string>(TOKEN_PLACEHOLDER); // 正式环境请从你的业务服务器获取 token
 
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
@@ -131,7 +132,7 @@ function App() {
       let loginToken = token;
       if (!loginToken) {
         const tokenUrl = IS_DEV
-          ? `http://localhost:8082/token?userId=${encodeURIComponent(userID)}`
+          ? `http://localhost:3001/token?userId=${encodeURIComponent(userID)}`
           : `https://ots-ai-review.appendata.com:8082/token?userId=${encodeURIComponent(userID)}`;
         const resp = await fetch(
           tokenUrl
@@ -166,7 +167,7 @@ function App() {
       // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
       try {
         const groupAgentEnterUrl = IS_DEV
-          ? 'http://localhost:8082/group-agent/enter'
+          ? 'http://localhost:3001/group-agent/enter'
           : 'https://ots-ai-review.appendata.com:8082/group-agent/enter';
         await fetch(groupAgentEnterUrl, {
           method: 'POST',
@@ -192,6 +193,26 @@ function App() {
       setLocalStream(stream);
       setIsInRoom(true);
 
+      try {
+        const startRecordUrl = IS_DEV
+            ? 'http://localhost:3001/startRecord'
+            : 'https://ots-ai-review.appendata.com:8082/startRecord';
+        const resp = await fetch(startRecordUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomID,
+          }),
+        });
+
+        const taskId = (await resp.json()).taskId;
+        setTaskId(taskId);
+
+      } catch (e) {
+        console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
+      }
     } catch (e: any) {
       console.error(e);
       setError(e?.message || '加入房间失败，请检查配置');
@@ -223,12 +244,34 @@ function App() {
       setIsMuted(false);
       setRemoteStreams([]);
       await zg.logoutRoom(roomID);
+
+      try {
+        const stopRecordUrl = IS_DEV
+            ? 'http://localhost:3001/stopRecord'
+            : 'https://ots-ai-review.appendata.com:8082/stopRecord';
+        await fetch(stopRecordUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            taskId: taskId,
+            roomId: roomID,
+          }),
+        });
+
+        setTaskId(undefined);
+
+      } catch (e) {
+        console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
+      }
+
     } catch (e) {
       console.error(e);
     } finally {
       setIsInRoom(false);
     }
-  }, [localStream, remoteStreams, roomID, userID]);
+  }, [localStream, remoteStreams, roomID, userID, taskId]);
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;
@@ -266,24 +309,24 @@ function App() {
       <h1 className="zego-title">Zego 多人音视频通话 Demo</h1>
 
       <div className="zego-config">
-        <div className="zego-config-row">
-          <label>appID：</label>
-          <input
-            type="number"
-            value={appID || ''}
-            onChange={e => setAppID(Number(e.target.value))}
-            placeholder="在控制台获取的 appID（数字）"
-          />
-        </div>
-        <div className="zego-config-row">
-          <label>server：</label>
-          <input
-            type="text"
-            value={server}
-            onChange={e => setServer(e.target.value)}
-            placeholder="wss://xxx.zego.im/ws"
-          />
-        </div>
+        {/*<div className="zego-config-row">*/}
+        {/*  <label>appID：</label>*/}
+        {/*  <input*/}
+        {/*    type="number"*/}
+        {/*    value={appID || ''}*/}
+        {/*    onChange={e => setAppID(Number(e.target.value))}*/}
+        {/*    placeholder="在控制台获取的 appID（数字）"*/}
+        {/*  />*/}
+        {/*</div>*/}
+        {/*<div className="zego-config-row">*/}
+        {/*  <label>server：</label>*/}
+        {/*  <input*/}
+        {/*    type="text"*/}
+        {/*    value={server}*/}
+        {/*    onChange={e => setServer(e.target.value)}*/}
+        {/*    placeholder="wss://xxx.zego.im/ws"*/}
+        {/*  />*/}
+        {/*</div>*/}
         <div className="zego-config-row">
           <label>roomID：</label>
           <input
@@ -308,16 +351,6 @@ function App() {
             onChange={e => setUserName(e.target.value)}
           />
         </div>
-        <div className="zego-config-row">
-          <label>token（可选）：</label>
-          <input
-            type="text"
-            value={token}
-            onChange={e => setToken(e.target.value)}
-            placeholder="推荐从你的业务服务端获取"
-          />
-        </div>
-
         <div className="zego-actions">
           <button
             type="button"

@@ -124,6 +124,7 @@ app.post('/group-agent/enter', async (req, res) => {
       UserStreamId: rtcInfo.UserStreamId,
     };
 
+    console.log(rtc);
     if (!agentInstanceId) {
       // 第一个用户：创建 Group Agent 实例
       result = await agent.createGroupAgentInstance(CONSTANTS.AGENT_ID, userID, rtc);
@@ -168,16 +169,71 @@ app.post('/asr-asrresult', (req, res) => {
     }
 
     console.log('[asrresult] 收到识别结果：', { UserId, MessageId, Text });
-      return res.json({
-        SendLLM: {
-          Text: Text,
-        },
-      });
+    return res.json({
+      SendLLM: {
+        Text: Text,
+      },
+    });
   } catch (e) {
     console.error('[asrresult] 处理失败：', e);
     return res.json({});
   }
 });
+
+
+app.post('/startRecord', async (req, res) => {
+  try {
+    const { roomID } = req.body || {};
+
+    const agent = ZegoAIAgent.getInstance();
+    const result = await agent.startRecord(roomID);
+    console.log(result);
+
+    return res.json({
+        taskId: result.Data.TaskId,
+      ...result
+    });
+  } catch (e) {
+    console.error('[startRecord] 处理失败：', e);
+    return res.json({});
+  }
+})
+
+app.post('/stopRecord', async (req, res) => {
+  try {
+    const { taskId,roomId } = req.body || {};
+
+    if (!taskId) {
+
+      console.log(taskId, 'is null');
+      return res.json({});
+    }
+
+    const agent = ZegoAIAgent.getInstance();
+    const result = await agent.stopRecord(taskId);
+
+    const resp = await agent.describeUserNum(roomId);
+    console.log(resp);
+    const num = resp.Data.UserCountList?.length || 0;
+    if (num === 0){
+      console.log('clear roomGroupAgentMap');
+      roomGroupAgentMap.delete(roomId);
+    }
+
+    return res.json({
+      ...result
+    });
+  } catch (e) {
+    console.error('[startRecord] 处理失败：', e);
+    return res.json({});
+  }
+})
+
+app.post('/recordCallback', async (req, res) => {
+  console.log('record callback',req.body);
+
+  return res.json({});
+})
 
 app.listen(port, "0.0.0.0",() => {
   console.log(`[zego-token-server] 启动成功，端口: ${port}`);
