@@ -179,7 +179,7 @@ app.post('/asr-asrresult', (req, res) => {
   }
 });
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0",() => {
   console.log(`[zego-token-server] 启动成功，端口: ${port}`);
 });
 
