@@ -230,7 +230,7 @@ app.post('/stopRecord', async (req, res) => {
 })
 
 app.post('/recordCallback', async (req, res) => {
-  console.log('record callback',req.body);
+  console.log('record callback',JSON.stringify(req.body));
 
   return res.json({});
 })
