@@ -115,6 +115,47 @@ class ZegoAIAgent {
     };
     return this.sendRequest(action, body);
   }
+
+  async startRecord(roomId) {
+    const action = 'StartRecord';
+    const body = {
+      RoomId: roomId,
+      "RecordInputParams": {
+        "RecordMode": 1,
+        "StreamType": 1,
+        "MaxIdleTime": 60
+      },
+      "RecordOutputParams": {
+        "OutputFileFormat": "mp3",
+        "OutputFolder": roomId+"/",
+      },
+      StorageParams: {
+        "Vendor": 10,
+        "Region": process.env.TOS_REGION_ID,
+        "Bucket": process.env.TOS_BUCKET,
+        "AccessKeyId": process.env.API_ACCESS_KEY,
+        "AccessKeySecret": process.env.API_SECRET_KEY,
+        "EndPoint": process.env.TOS_ENDPOINT
+      }
+    };
+    return this.sendRequest(action, body);
+  }
+
+  async stopRecord(taskId) {
+    const action = 'StopRecord';
+    const body = {
+      TaskId: taskId
+    };
+    return this.sendRequest(action, body);
+  }
+
+  async describeUserNum(roomId) {
+    const action = 'DescribeUserNum';
+    const body = {
+    };
+    return this.sendRequest(action, body, undefined,'Get');
+  }
+
 }
 
 module.exports = {

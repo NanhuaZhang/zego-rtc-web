@@ -131,8 +131,8 @@ function App() {
       let loginToken = token;
       if (!loginToken) {
         const tokenUrl = IS_DEV
-          ? `http://localhost:3001/token?userID=${encodeURIComponent(userID)}`
-          : `/.netlify/functions/token?userID=${encodeURIComponent(userID)}`;
+          ? `http://localhost:8082/token?userId=${encodeURIComponent(userID)}`
+          : `https://ots-ai-review.appendata.com:8082/token?userId=${encodeURIComponent(userID)}`;
         const resp = await fetch(
           tokenUrl
         );
@@ -166,8 +166,8 @@ function App() {
       // 由本地服务去调用 CreateGroupAgentInstance / JoinGroupAgentInstance
       try {
         const groupAgentEnterUrl = IS_DEV
-          ? 'http://localhost:3001/group-agent/enter'
-          : '/.netlify/functions/group-agent-enter';
+          ? 'http://localhost:8082/group-agent/enter'
+          : 'https://ots-ai-review.appendata.com:8082/group-agent/enter';
         await fetch(groupAgentEnterUrl, {
           method: 'POST',
           headers: {

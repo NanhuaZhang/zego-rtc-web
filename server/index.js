@@ -2,11 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { ZegoAIAgent, CONSTANTS } = require('./zegoAIAgent');
+const {generateToken04} = require("./token");
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 8082;
 
 app.use(cors());
 app.use(express.json());
@@ -15,33 +16,82 @@ function randomId(prefix) {
   return prefix + Math.random().toString(36).substring(2, 10);
 }
 
-// 这里改为从环境变量读取一个“静态 token”，避免依赖不存在的 SDK。
-// 你可以把从 Zego 控制台/你自己的后端生成的 token 配在 .env 里：
-// ZEGO_STATIC_TOKEN=xxxx
-const staticToken = process.env.ZEGO_STATIC_TOKEN || '';
+// 从环境变量获取配置
+const appID = Number(process.env.NEXT_PUBLIC_ZEGO_APP_ID);
+const serverSecret = process.env.ZEGO_SERVER_SECRET;
 
 // ====== token 接口（返回静态 token）======
 app.get('/token', (req, res) => {
   try {
-    const { userID } = req.query;
+    const { userId } = req.query;
 
-    if (!userID) {
-      return res.status(400).json({ code: 400, msg: '缺少 userID 参数' });
-    }
-    if (!staticToken) {
-      return res
-        .status(500)
-        .json({ code: 500, msg: '服务器未配置 ZEGO_STATIC_TOKEN' });
+    console.log('Request parameters:', {
+      url: req.url,
+      userId,
+    });
+
+    // 验证必要参数
+    if (!userId) {
+      console.log('Error: userId is missing');
+      return res.json(
+          {
+            code: 400,
+            message: 'userId is required'
+          },
+          { status: 400 }
+      );
     }
 
-    // 这里不真正计算过期时间，仅简单返回一个未来时间戳，前端目前也没有用到它
+    if (!appID || !serverSecret) {
+      console.log('Error: Server configuration missing:', {
+        hasAppID: !!appID,
+        hasServerSecret: !!serverSecret,
+      });
+      return res.json(
+          {
+            code: 500,
+            message: 'Server configuration error'
+          },
+          { status: 500 }
+      );
+    }
+
+    // 设置token有效期（1小时）
     const effectiveTimeInSeconds = 3600;
 
-    return res.json({
-      code: 0,
-      token: staticToken,
-      expireAt: Math.floor(Date.now() / 1000) + effectiveTimeInSeconds,
+    console.log('Generating token with parameters:', {
+      appID,
+      userId,
+      effectiveTimeInSeconds,
     });
+
+    // 生成token
+    const token = generateToken04(
+        appID,
+        userId,
+        serverSecret,
+        effectiveTimeInSeconds,
+        '' // payload为空字符串
+    );
+
+    console.log('Token generated successfully');
+
+    // 返回token
+    const response = {
+      code: 0,
+      message: 'Generate token success',
+      token,
+      user_id: userId,
+      expire_time: Date.now() + effectiveTimeInSeconds * 1000
+    };
+
+    console.log('Sending response:', {
+      hasToken: !!token,
+      userId,
+      expireTime: response.expire_time,
+    });
+
+    return res.json(response);
   } catch (e) {
     console.error('[zego-token-server] 返回 token 失败：', e);
     return res.status(500).json({ code: 500, msg: '返回 token 失败' });
@@ -118,24 +168,11 @@ app.post('/asr-asrresult', (req, res) => {
     }
 
     console.log('[asrresult] 收到识别结果：', { UserId, MessageId, Text });
-
-    if (Text.includes('你好')) {
-      return res.json({
-        AddHistory: {
-          Text: '小红说:' + Text,
-        },
-      });
-    }
-
-    if (Text.includes('请问')) {
       return res.json({
         SendLLM: {
-          Text: '小红说:' + Text,
+          Text: Text,
         },
       });
-    }
-
-    return res.json({});
   } catch (e) {
     console.error('[asrresult] 处理失败：', e);
     return res.json({});
