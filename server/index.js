@@ -184,10 +184,16 @@ app.post('/asr-asrresult', (req, res) => {
 app.post('/startRecord', async (req, res) => {
   try {
     const { roomID } = req.body || {};
-
     const agent = ZegoAIAgent.getInstance();
+
+    const resp = await agent.describeUserNum(roomID);
+    const num = resp.Data.UserCountList[0].UserCount || 0;
+    if (num === 2){
+      console.log('startRecord when 2 people in room')
+      return res.json({})
+    }
+
     const result = await agent.startRecord(roomID);
-    console.log(result);
 
     return res.json({
         taskId: result.Data.TaskId,
@@ -204,7 +210,6 @@ app.post('/stopRecord', async (req, res) => {
     const { taskId,roomId } = req.body || {};
 
     if (!taskId) {
-
       console.log(taskId, 'is null');
       return res.json({});
     }
@@ -213,9 +218,8 @@ app.post('/stopRecord', async (req, res) => {
     const result = await agent.stopRecord(taskId);
 
     const resp = await agent.describeUserNum(roomId);
-    console.log(resp);
-    const num = resp.Data.UserCountList?.length || 0;
-    if (num === 0){
+    const num = resp.Data.UserCountList[0].UserCount || 0;
+    if (num === 2){
       console.log('clear roomGroupAgentMap');
       roomGroupAgentMap.delete(roomId);
     }

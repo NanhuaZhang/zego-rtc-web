@@ -189,7 +189,7 @@ function App() {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
       }
 
-      await zg.startPublishingStream(localStreamID, stream);
+      zg.startPublishingStream(localStreamID, stream);
       setLocalStream(stream);
       setIsInRoom(true);
 
@@ -207,8 +207,9 @@ function App() {
           }),
         });
 
-        const taskId = (await resp.json()).taskId;
-        setTaskId(taskId);
+        const taskData= await resp.json();
+        console.log('startRecord',taskData);
+        setTaskId(taskData.taskId);
 
       } catch (e) {
         console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
@@ -219,7 +220,7 @@ function App() {
     } finally {
       setIsInitializing(false);
     }
-  }, [ensureEngine, roomID, token, userID, userName]);
+  }, [ensureEngine, roomID, token, userID, userName, taskId]);
 
   const handleLeaveRoom = useCallback(async () => {
     const zg = engineRef.current;
@@ -237,13 +238,13 @@ function App() {
 
       if (localStream) {
         const localStreamID = `${roomID}_${userID}`;
-        await zg.stopPublishingStream(localStreamID);
+        zg.stopPublishingStream(localStreamID);
         zg.destroyStream(localStream as any);
       }
       setLocalStream(null);
       setIsMuted(false);
       setRemoteStreams([]);
-      await zg.logoutRoom(roomID);
+      zg.logoutRoom(roomID);
 
       try {
         const stopRecordUrl = IS_DEV
@@ -362,7 +363,9 @@ function App() {
           <button
             type="button"
             disabled={!isInRoom}
-            onClick={handleLeaveRoom}
+            onClick={async ()=>{
+              await handleLeaveRoom();
+            }}
             className="danger"
           >
             离开房间

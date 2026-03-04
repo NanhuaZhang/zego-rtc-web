@@ -137,7 +137,7 @@ class ZegoAIAgent {
 
     console.log(action, body);
     const response = await axios(config);
-    console.log(action, response.data);
+    console.log(action, JSON.stringify(response.data));
     return response.data;
   }
 
@@ -293,8 +293,9 @@ class ZegoAIAgent {
       },
       data: body || undefined,
     };
-
+    console.log(action, body);
     const response = await axios(config);
+    console.log(action, JSON.stringify(response.data));
     return response.data;
   }
 }
