@@ -183,12 +183,12 @@ app.post('/asr-asrresult', (req, res) => {
 
 app.post('/startRecord', async (req, res) => {
   try {
-    const { roomID } = req.body || {};
+    const { roomID ,isSingle} = req.body || {};
     const agent = ZegoAIAgent.getInstance();
 
     const resp = await agent.describeUserNum(roomID);
     const num = resp.Data.UserCountList[0].UserCount || 0;
-    if (num === 2){
+    if (!isSingle && num === 2){
       console.log('startRecord when 2 people in room')
       return res.json({})
     }

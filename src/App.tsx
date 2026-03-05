@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
+import {useLocation} from "react-router-dom";
 
 type ZegoRemoteStream = {
   streamID: string;
@@ -35,6 +36,9 @@ function App() {
 
   const engineRef = useRef<ZegoExpressEngine | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const location = useLocation()
+  const isSingle = location.pathname.includes("single")
 
   const ensureEngine = useCallback(() => {
     if (engineRef.current) return engineRef.current;
@@ -204,6 +208,7 @@ function App() {
           },
           body: JSON.stringify({
             roomID,
+            isSingle
           }),
         });
 
