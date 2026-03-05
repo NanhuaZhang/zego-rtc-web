@@ -24,6 +24,7 @@ function App() {
   const [userName, setUserName] = useState<string>('Demo User');
   const [taskId, setTaskId] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string>(TOKEN_PLACEHOLDER); // 正式环境请从你的业务服务器获取 token
+  const [agentId, setAgentId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
 
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [isInRoom, setIsInRoom] = useState<boolean>(false);
@@ -173,7 +174,7 @@ function App() {
         const groupAgentEnterUrl = IS_DEV
           ? 'http://localhost:3001/group-agent/enter'
           : 'https://ots-ai-review.appendata.com:8082/group-agent/enter';
-        await fetch(groupAgentEnterUrl, {
+        const resp = await fetch(groupAgentEnterUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -183,12 +184,14 @@ function App() {
             userID,
             rtcInfo: {
               RoomId: roomID,
-              AgentStreamId: '',
-              AgentUserId: 'ai_agent_example_1',
               UserStreamId: localStreamID,
             },
           }),
         });
+        const json = await resp.json();
+        const agentId = json.agentId;
+        setAgentId(agentId);
+
       } catch (e) {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
       }
@@ -213,7 +216,6 @@ function App() {
         });
 
         const taskData= await resp.json();
-        console.log('startRecord',taskData);
         setTaskId(taskData.taskId);
 
       } catch (e) {
@@ -225,7 +227,7 @@ function App() {
     } finally {
       setIsInitializing(false);
     }
-  }, [ensureEngine, roomID, token, userID, userName, taskId]);
+  }, [roomID, userID, userName, ensureEngine, token, isSingle]);
 
   const handleLeaveRoom = useCallback(async () => {
     const zg = engineRef.current;
@@ -263,6 +265,7 @@ function App() {
           body: JSON.stringify({
             taskId: taskId,
             roomId: roomID,
+            agentId
           }),
         });
 
@@ -277,7 +280,7 @@ function App() {
     } finally {
       setIsInRoom(false);
     }
-  }, [localStream, remoteStreams, roomID, userID, taskId]);
+  }, [remoteStreams, localStream, roomID, userID, taskId, agentId]);
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;

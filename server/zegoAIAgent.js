@@ -1,6 +1,44 @@
 const { createHash } = require('crypto');
 const axios = require('axios');
 
+/**
+ * 判断两个对象是否相等
+ * @param obj1
+ * @param obj2
+ * @returns
+ */
+function isEqual(obj1, obj2) {
+  // 检查是否为同一引用
+  if (obj1 === obj2) {
+    return true;
+  }
+
+  // 检查是否为 null 或非对象类型
+  if (obj1 === null || obj2 === null || typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+
+  // 检查数组情况
+  if (Array.isArray(obj1) && Array.isArray(obj2)) {
+    if (obj1.length !== obj2.length) return false;
+    for (let i = 0; i < obj1.length; i++) {
+      if (!isEqual(obj1[i], obj2[i])) return false;
+    }
+    return true;
+  }
+
+  // 检查对象情况
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+
+  if (keys1.length !== keys2.length) return false;
+
+  for (const key of keys1) {
+    if (!keys2.includes(key) || !isEqual(obj1[key], obj2[key])) return false;
+  }
+
+  return true;
+}
+
+
 const SYSTEM_PROMPT = `
 回答问题要求：你在做角色扮演，请按照人设要求与用户对话，直接输出回答，回答时以句号为维度，单次回答最长不要超过3句，不能超过100字。
 角色：李悦然
@@ -37,15 +75,6 @@ const SYSTEM_PROMPT = `
 10. 用户：李老师，谢谢您的教导。
 李悦然：看到你的进步，老师比什么都开心，继续加油！
 `;
-
-// 常量定义
-const CONSTANTS = {
-  AGENT_ID: 'ai_agent_example_1',
-  AGENT_NAME: '李浩然',
-  ERROR_CODES: {
-    DIGITAL_HUMAN_CONCURRENCY_LIMIT: 410001025,
-  },
-};
 
 class ZegoAIAgent {
   static instance;
@@ -194,6 +223,30 @@ class ZegoAIAgent {
     return this.sendRequest(action, body);
   }
 
+  async deleteAgentInstance(agentInstanceId) {
+    // https://aigc-aiagent-api.zegotech.cn?Action=DeleteAgentInstance
+    const action = 'DeleteAgentInstance';
+    const body = {
+      AgentInstanceId: agentInstanceId
+    };
+    const result = await this.sendRequest(action, body);
+    console.log("delete agent instance result", result);
+    return result;
+  }
+
+  async listAgents(limit, cursor) {
+    // https://aigc-aiagent-api.zegotech.cn?Action=ListAgents
+    const action = 'ListAgents';
+    const body = {};
+
+    if (limit !== undefined) body.Limit = limit;
+    if (cursor) body.Cursor = cursor;
+
+    const result = await this.sendRequest(action, body);
+    console.log("list agents result", result);
+    return result;
+  }
+
   async createGroupAgentInstance(
     agentId,
     userId,
@@ -242,6 +295,74 @@ class ZegoAIAgent {
     };
     const result = await this.sendRequest(action, body);
     return result;
+  }
+
+  // 智能体注册逻辑
+  async ensureAgentRegistered(agentId, agentName){
+    try {
+      const agents = await this.queryAgents([agentId]);
+      const agentExists = agents?.length > 0 &&
+          agents.find((agent) => agent.AgentId === agentId);
+
+      if (!agentExists) {
+        await this.registerAgent(agentId, agentName);
+        console.log(`智能体注册成功: ${agentId}`);
+      } else {
+        console.log(`智能体已存在: ${agentId}`);
+        const isConfigEqual = this.compareAgentConfig(agentExists)
+        console.log('isConfigEqual', isConfigEqual)
+        if (!isConfigEqual) {
+          await this.updateAgent(agentId, agentName);
+        }
+      }
+    } catch (error) {
+      console.error(`智能体注册失败: ${agentId}`, error);
+      throw new Error(`智能体注册失败: ${error.message}`);
+    }
+  }
+
+  async updateAgent(agentId, agentName, llmConfig = null, ttsConfig = null, asrConfig = null) {
+    if (!process.env.LLM_BASE_URL || !process.env.LLM_API_KEY || !process.env.LLM_MODEL) {
+      throw new Error('LLM_BASE_URL, LLM_API_KEY and LLM_MODEL environment variables must be set');
+    }
+    const { LLM, TTS, ASR } = await this.getDefaultAgentConfig();
+    // https://aigc-aiagent-api.zegotech.cn?Action=UpdateAgent
+    const action = 'UpdateAgent';
+    const body = {
+      AgentId: agentId,
+      Name: agentName,
+      LLM: llmConfig || LLM,
+      TTS: ttsConfig || TTS,
+      ASR: asrConfig || ASR
+    };
+    console.log('updateAgent body', body)
+    return this.sendRequest(action, body);
+  }
+
+  compareAgentConfig(config) {
+    const { LLM, TTS, ASR } = this.getDefaultAgentConfig();
+    const defaultConfig = {
+      LLM,
+      TTS,
+      ASR
+    }
+    const agentConfig = {
+      LLM: config.LLM,
+      TTS: config.TTS,
+      ASR: config.ASR
+    }
+    return isEqual(agentConfig, defaultConfig);
+  }
+
+  async queryAgents(agentIds) {
+    // https://aigc-aiagent-api.zegotech.cn?Action=QueryAgents
+    const action = 'QueryAgents';
+    const body = {
+      AgentIds: agentIds
+    };
+    const result = await this.sendRequest(action, body);
+    console.log("query agents result", result);
+    return result.Data.Agents;
   }
 
   async startRecord(roomId) {
@@ -302,7 +423,6 @@ class ZegoAIAgent {
 
 module.exports = {
   ZegoAIAgent,
-  CONSTANTS,
   SYSTEM_PROMPT,
 };
 

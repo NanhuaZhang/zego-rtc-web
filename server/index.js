@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { ZegoAIAgent, CONSTANTS } = require('./zegoAIAgent');
+const { ZegoAIAgent } = require('./zegoAIAgent');
 const {generateToken04} = require("./token");
 
 dotenv.config();
@@ -103,6 +103,8 @@ app.get('/token', (req, res) => {
 // 简单的内存缓存：roomID -> agentInstanceId
 const roomGroupAgentMap = new Map();
 
+const agentName = '李浩然';
+
 // 前端只需要调用这个接口：服务器内部根据是否已经有实例自动选择 Create 或 Join
 app.post('/group-agent/enter', async (req, res) => {
   try {
@@ -120,14 +122,15 @@ app.post('/group-agent/enter', async (req, res) => {
     const rtc = {
       RoomId: roomID,
       AgentStreamId: rtcInfo.AgentStreamId || randomId('stream_agent_'),
-      AgentUserId: CONSTANTS.AGENT_ID,
+      AgentUserId: randomId('ai_agent_'),
       UserStreamId: rtcInfo.UserStreamId,
     };
 
-    console.log(rtc);
+    await agent.ensureAgentRegistered(rtc.AgentUserId, agentName);
+
     if (!agentInstanceId) {
       // 第一个用户：创建 Group Agent 实例
-      result = await agent.createGroupAgentInstance(CONSTANTS.AGENT_ID, userID, rtc);
+      result = await agent.createGroupAgentInstance(rtc.AgentUserId, userID, rtc);
       // 从返回中推断 AgentInstanceId（字段名可按文档调整）
       agentInstanceId =
         (result && result.Data && (result.Data.AgentInstanceId || result.Data.AgentInstanceID)) ||
@@ -146,6 +149,7 @@ app.post('/group-agent/enter', async (req, res) => {
       roomID,
       userID,
       agentInstanceId: agentInstanceId || null,
+      agentId: rtc.AgentUserId,
       raw: result,
     });
   } catch (e) {
@@ -207,7 +211,7 @@ app.post('/startRecord', async (req, res) => {
 
 app.post('/stopRecord', async (req, res) => {
   try {
-    const { taskId,roomId } = req.body || {};
+    const { taskId, roomId ,agentId} = req.body || {};
 
     if (!taskId) {
       console.log(taskId, 'is null');
@@ -222,6 +226,10 @@ app.post('/stopRecord', async (req, res) => {
     if (num === 2){
       console.log('clear roomGroupAgentMap');
       roomGroupAgentMap.delete(roomId);
+
+      if (agentId) {
+        await agent.deleteAgentInstance(agentId);
+      }
     }
 
     return res.json({
