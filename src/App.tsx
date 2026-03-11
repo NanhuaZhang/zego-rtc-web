@@ -26,7 +26,6 @@ function App() {
   const [taskId, setTaskId] = useState<string | undefined>(undefined);
   const [mixedTaskId, setMixedTaskId] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string>(TOKEN_PLACEHOLDER); // 正式环境请从你的业务服务器获取 token
-  const [agentId, setAgentId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
   const [agentInstanceId, setAgentInstanceId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
 
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
@@ -34,6 +33,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  const [isAgentMuted, setAgentMuted] = useState<boolean>(false);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<ZegoRemoteStream[]>([]);
@@ -235,9 +236,7 @@ function App() {
           }),
         });
         const json = await resp.json();
-        const agentId = json.agentId;
         const agentInstanceId = json.agentInstanceId;
-        setAgentId(agentId);
         setAgentInstanceId(agentInstanceId);
 
       } catch (e) {
@@ -298,6 +297,7 @@ function App() {
       }
       setLocalStream(null);
       setIsMuted(false);
+      setAgentMuted(false);
       setRemoteStreams([]);
       zg.logoutRoom(roomID);
 
@@ -313,7 +313,7 @@ function App() {
           body: JSON.stringify({
             taskId: taskId,
             roomId: roomID,
-            agentId,
+            agentInstanceId,
             mixedTaskId
           }),
         });
@@ -329,7 +329,7 @@ function App() {
     } finally {
       setIsInRoom(false);
     }
-  }, [remoteStreams, localStream, roomID, userID, taskId, agentId, mixedTaskId]);
+  }, [remoteStreams, localStream, roomID, userID, taskId, agentInstanceId, mixedTaskId]);
 
   const handleInterrupt = useCallback(async () => {
     try {
@@ -347,9 +347,30 @@ function App() {
       });
 
     } catch (e) {
-      console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
+      console.error('调用 interrupt 接口失败，仅作为警告，不阻塞入会：', e);
     }
   },[agentInstanceId])
+
+  const handleAgentMute = useCallback(async () => {
+    try {
+      const agentUrl = IS_DEV
+          ? 'http://localhost:3001/agent'
+          : 'https://ots-ai-review.appendata.com:8082/agent';
+      await fetch(agentUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          isAgentMuted:!isAgentMuted,
+          agentInstanceId
+        }),
+      });
+      setAgentMuted(!isAgentMuted);
+    } catch (e) {
+      console.error('调用 agent 接口失败，仅作为警告，不阻塞入会：', e);
+    }
+  },[agentInstanceId, isAgentMuted])
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;
@@ -453,6 +474,13 @@ function App() {
             onClick={handleToggleMute}
           >
             {isMuted ? '取消静音' : '静音'}
+          </button>
+          <button
+              type="button"
+              disabled={!isInRoom}
+              onClick={handleAgentMute}
+          >
+            {isAgentMuted ? '开启Agent' : '关闭Agent'}
           </button>
         </div>
 

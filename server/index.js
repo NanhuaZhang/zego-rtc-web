@@ -171,6 +171,18 @@ app.post('/interrupt', async (req, res) => {
   }
 })
 
+app.post('/mute', async (req, res) => {
+  try {
+    const {isAgentMuted,agentInstanceId} = req.body || {};
+    await redisClient.set(agentInstanceId+'_mute',isAgentMuted ? 1:0);
+    return res.json({
+      code: 0,
+    })
+  }catch(e) {
+    console.error('[interrupt] 处理失败：', e?.response?.data || e);
+    return res.status(500).json({ code: 500, msg: 'interrupt 接口调用失败' });
+  }
+})
 
 // 前端只需要调用这个接口：服务器内部根据是否已经有实例自动选择 Create 或 Join
 app.post('/group-agent/enter', async (req, res) => {
@@ -215,7 +227,6 @@ app.post('/group-agent/enter', async (req, res) => {
       roomID,
       userID,
       agentInstanceId: agentInstanceId || null,
-      agentId: rtc.AgentUserId,
       raw: result,
     });
   } catch (e) {
@@ -229,10 +240,15 @@ app.post('/group-agent/enter', async (req, res) => {
 // - 文本包含“你好”：只写入历史，不触发 LLM 回复
 // - 文本包含“请问”：把内容发给 LLM，让 Agent 回复
 // - 否则：返回空对象，Agent 不作处理
-app.post('/asr-asrresult', (req, res) => {
+app.post('/asr-asrresult', async (req, res) => {
   try {
     const data = (req.body && req.body.Data) || {};
-    const { UserId, MessageId, Text } = data;
+    const { UserId, MessageId, Text ,AgentInstanceId} = data;
+
+    const isAgentMuted = await redisClient.get(AgentInstanceId+'_mute',)
+    if (isAgentMuted === 1) {
+      return res.json({})
+    }
 
     if (!Text) {
       return res.json({});
@@ -279,7 +295,7 @@ app.post('/startRecord', async (req, res) => {
 
 app.post('/stopRecord', async (req, res) => {
   try {
-    const { taskId, roomId ,agentId,mixedTaskId} = req.body || {};
+    const { taskId, roomId ,agentInstanceId,mixedTaskId} = req.body || {};
 
     if (!taskId) {
       console.log(taskId, 'is null');
@@ -295,9 +311,10 @@ app.post('/stopRecord', async (req, res) => {
     if (num === 2){
       console.log('clear roomGroupAgentMap');
       await redisClient.delete(roomId);
+      await redisClient.delete(roomId);
 
-      if (agentId) {
-        await agent.deleteAgentInstance(agentId);
+      if (agentInstanceId) {
+        await agent.deleteAgentInstance(agentInstanceId);
       }
     }
 
