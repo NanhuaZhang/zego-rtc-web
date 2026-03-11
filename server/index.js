@@ -26,13 +26,13 @@ const redisClient = createClient({
   url: 'redis://localhost:6379'
 });
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
-redisClient.connect();
+// redisClient.connect();
 
 const tosClient = new TosClient({
   accessKeyId: process.env.API_ACCESS_KEY,
   accessKeySecret: process.env.API_SECRET_KEY,
   region: process.env.TOS_REGION_ID, // 填写 Bucket 所在地域。以华北2（北京)为例，"Provide your region" 填写为 cn-beijing。
-  endpoint: process.env.TOS_ENDPOINT, // 填写域名地址
+  endpoint: process.env.TOS_ENDPOINT_SINGLE, // 填写域名地址
 });
 
 /**
@@ -47,12 +47,14 @@ async function folderExists(folderPath) {
   }
 
   try {
-    const res = await tosClient.listObjects({
+    const res = await tosClient.listObjectsType2({
       prefix: folderPath,
       maxKeys: 1,  // 只需要检查是否有对象
+      bucket: process.env.TOS_BUCKET,
     });
 
-    return res.contents && res.contents.length > 0;
+    console.log(res);
+    return res.data.Contents.length > 0;
   } catch (err) {
     console.error('检查文件夹出错：', err);
     return false;
