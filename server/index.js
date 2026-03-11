@@ -309,7 +309,7 @@ app.post('/stopRecord', async (req, res) => {
 
     const resp = await agent.describeUserNum(roomId);
     const num = resp.Data.UserCountList[0].UserCount || 0;
-    // 两个录制+一个agent
+    // 两个录制+一个人
     if (num === 3){
       console.log('clear roomGroupAgentMap');
       await redisClient.delete(roomId);
