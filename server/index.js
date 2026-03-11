@@ -1,10 +1,10 @@
-import { createClient } from 'redis';
-import {TosClient} from "@volcengine/tos-sdk";
+const {TosClient}  = require('@volcengine/tos-sdk');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { ZegoAIAgent } = require('./zegoAIAgent');
 const {generateToken04} = require("./token");
+const {createClient} = require("redis");
 
 dotenv.config();
 
@@ -26,7 +26,7 @@ const redisClient = createClient({
   url: 'redis://localhost:6379'
 });
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
-await redisClient.connect();
+redisClient.connect();
 
 const tosClient = new TosClient({
   accessKeyId: process.env.API_ACCESS_KEY,
