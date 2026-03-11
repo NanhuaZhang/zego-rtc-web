@@ -171,7 +171,7 @@ app.post('/interrupt', async (req, res) => {
   }
 })
 
-app.post('/mute', async (req, res) => {
+app.post('/agent', async (req, res) => {
   try {
     const {isAgentMuted,agentInstanceId} = req.body || {};
     await redisClient.set(agentInstanceId+'_mute',isAgentMuted ? 1:0);
@@ -274,6 +274,7 @@ app.post('/startRecord', async (req, res) => {
 
     const resp = await agent.describeUserNum(roomID);
     const num = resp.Data.UserCountList[0].UserCount || 0;
+    //
     if (!isSingle && num === 2){
       console.log('startRecord when 2 people in room')
       return res.json({})
@@ -308,10 +309,11 @@ app.post('/stopRecord', async (req, res) => {
 
     const resp = await agent.describeUserNum(roomId);
     const num = resp.Data.UserCountList[0].UserCount || 0;
-    if (num === 2){
+    // 两个录制+一个agent
+    if (num === 3){
       console.log('clear roomGroupAgentMap');
       await redisClient.delete(roomId);
-      await redisClient.delete(roomId);
+      await redisClient.delete(agentInstanceId+'_mute');
 
       if (agentInstanceId) {
         await agent.deleteAgentInstance(agentInstanceId);

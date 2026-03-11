@@ -354,8 +354,8 @@ function App() {
   const handleAgentMute = useCallback(async () => {
     try {
       const agentUrl = IS_DEV
-          ? 'http://localhost:3001/agent'
-          : 'https://ots-ai-review.appendata.com:8082/agent';
+          ? 'http://localhost:3001/mute'
+          : 'https://ots-ai-review.appendata.com:8082/mute';
       await fetch(agentUrl, {
         method: 'POST',
         headers: {
