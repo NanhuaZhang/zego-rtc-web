@@ -223,6 +223,14 @@ class ZegoAIAgent {
     return this.sendRequest(action, body);
   }
 
+  async interruptAgentInstance(agentInstanceId) {
+    const action = 'InterruptAgentInstance';
+    const body = {
+      AgentInstanceId: agentInstanceId
+    };
+    return this.sendRequest(action, body);
+  }
+
   async deleteAgentInstance(agentInstanceId) {
     // https://aigc-aiagent-api.zegotech.cn?Action=DeleteAgentInstance
     const action = 'DeleteAgentInstance';
@@ -255,7 +263,7 @@ class ZegoAIAgent {
     ttsConfig = null,
     asrConfig = null,
     messageHistory = null,
-    callbackConfig = null,
+    callbackConfig = { AgentInstanceStatus:1 },
     advancedConfig = null
   ) {
     const action = 'CreateGroupAgentInstance';
@@ -371,6 +379,31 @@ class ZegoAIAgent {
       RoomId: roomId,
       "RecordInputParams": {
         "RecordMode": 1,
+        "StreamType": 1,
+        "MaxIdleTime": 60
+      },
+      "RecordOutputParams": {
+        "OutputFileFormat": "mp3",
+        "OutputFolder": roomId + "/",
+      },
+      StorageParams: {
+        "Vendor": 10,
+        "Region": process.env.TOS_REGION_ID,
+        "Bucket": process.env.TOS_BUCKET,
+        "AccessKeyId": process.env.API_ACCESS_KEY,
+        "AccessKeySecret": process.env.API_SECRET_KEY,
+        "EndPoint": process.env.TOS_ENDPOINT
+      }
+    };
+    return this.sendRequest(action, body, this.cloudUrl);
+  }
+
+  async startMixedRecord(roomId) {
+    const action = 'StartRecord';
+    const body = {
+      RoomId: roomId,
+      "RecordInputParams": {
+        "RecordMode": 2,
         "StreamType": 1,
         "MaxIdleTime": 60
       },

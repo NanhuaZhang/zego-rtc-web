@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 import {useLocation} from "react-router-dom";
+import {message} from "antd";
 
 type ZegoRemoteStream = {
   streamID: string;
@@ -23,6 +24,7 @@ function App() {
   const [userID, setUserID] = useState<string>(() => `user_${Math.floor(Math.random() * 10000)}`);
   const [userName, setUserName] = useState<string>('Demo User');
   const [taskId, setTaskId] = useState<string | undefined>(undefined);
+  const [mixedTaskId, setMixedTaskId] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string>(TOKEN_PLACEHOLDER); // 正式环境请从你的业务服务器获取 token
   const [agentId, setAgentId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
 
@@ -129,9 +131,30 @@ function App() {
     }
 
     try {
-      setIsInitializing(true);
-
       const zg = ensureEngine();
+      try {
+        const groupAgentEnterUrl = IS_DEV
+            ? 'http://localhost:3001/check'
+            : 'https://ots-ai-review.appendata.com:8082/check';
+        const resp = await fetch(groupAgentEnterUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomID,
+          }),
+        });
+        const json = await resp.json();
+        if (json.existRoom){
+          message.warning('当前房间号已经录制完成，请修改房间号重新进入');
+          return;
+        }
+      }catch (e){
+        console.error('调用 check 接口失败，仅作为警告，不阻塞入会：', e);
+      }
+
+      setIsInitializing(true);
 
       // 如果没有在前端配置 token，则优先从本地 Express 服务获取
       let loginToken = token;
@@ -156,7 +179,7 @@ function App() {
       const stream = await zg.createStream({
         camera: {
           audio: true,
-          video: true,
+          video: false,
         },
       } as any);
 
@@ -217,7 +240,7 @@ function App() {
 
         const taskData= await resp.json();
         setTaskId(taskData.taskId);
-
+        setMixedTaskId(taskData.mixedTaskId);
       } catch (e) {
         console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
       }
@@ -265,7 +288,8 @@ function App() {
           body: JSON.stringify({
             taskId: taskId,
             roomId: roomID,
-            agentId
+            agentId,
+            mixedTaskId
           }),
         });
 
@@ -280,7 +304,7 @@ function App() {
     } finally {
       setIsInRoom(false);
     }
-  }, [remoteStreams, localStream, roomID, userID, taskId, agentId]);
+  }, [remoteStreams, localStream, roomID, userID, taskId, agentId, mixedTaskId]);
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;

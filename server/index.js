@@ -1,3 +1,5 @@
+import { createClient } from 'redis';
+import {TosClient} from "@volcengine/tos-sdk";
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -19,6 +21,43 @@ function randomId(prefix) {
 // 从环境变量获取配置
 const appID = Number(process.env.NEXT_PUBLIC_ZEGO_APP_ID);
 const serverSecret = process.env.ZEGO_SERVER_SECRET;
+
+const redisClient = createClient({
+  url: 'redis://localhost:6379'
+});
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+await redisClient.connect();
+
+const tosClient = new TosClient({
+  accessKeyId: process.env.API_ACCESS_KEY,
+  accessKeySecret: process.env.API_SECRET_KEY,
+  region: process.env.TOS_REGION_ID, // 填写 Bucket 所在地域。以华北2（北京)为例，"Provide your region" 填写为 cn-beijing。
+  endpoint: process.env.TOS_ENDPOINT, // 填写域名地址
+});
+
+/**
+ * 检查 TOS 上的“文件夹”是否存在
+ * @param {string} folderPath 文件夹路径，如 "path/to/folder"
+ * @returns {Promise<boolean>} true 表示存在，false 表示不存在
+ */
+async function folderExists(folderPath) {
+  // 确保以 "/" 结尾
+  if (!folderPath.endsWith('/')) {
+    folderPath += '/';
+  }
+
+  try {
+    const res = await tosClient.listObjectsV2({
+      prefix: folderPath,
+      maxKeys: 1,  // 只需要检查是否有对象
+    });
+
+    return res.contents && res.contents.length > 0;
+  } catch (err) {
+    console.error('检查文件夹出错：', err);
+    return false;
+  }
+}
 
 // ====== token 接口（返回静态 token）======
 app.get('/token', (req, res) => {
@@ -99,11 +138,21 @@ app.get('/token', (req, res) => {
 });
 
 // ====== Group Agent 接口（Create / Join）======
-
-// 简单的内存缓存：roomID -> agentInstanceId
-const roomGroupAgentMap = new Map();
-
 const agentName = '李浩然';
+
+app.post('/check', async (req, res) => {
+  try {
+    const {roomID} = req.body || {};
+    const existRoom = await folderExists(roomID);
+    return res.json({
+      code: 0,
+      existRoom
+    })
+  }catch(e) {
+    console.error('[check] 处理失败：', e?.response?.data || e);
+    return res.status(500).json({ code: 500, msg: 'check 接口调用失败' });
+  }
+})
 
 // 前端只需要调用这个接口：服务器内部根据是否已经有实例自动选择 Create 或 Join
 app.post('/group-agent/enter', async (req, res) => {
@@ -114,8 +163,7 @@ app.post('/group-agent/enter', async (req, res) => {
     }
 
     const agent = ZegoAIAgent.getInstance();
-
-    let agentInstanceId = roomGroupAgentMap.get(roomID);
+    let agentInstanceId = await redisClient.get(roomID);
     let result;
 
     // 如果前端没有传 RTC 信息，这里根据房间做一个最简单的占位结构
@@ -137,7 +185,7 @@ app.post('/group-agent/enter', async (req, res) => {
         result.AgentInstanceId ||
         null;
       if (agentInstanceId) {
-        roomGroupAgentMap.set(roomID, agentInstanceId);
+        await redisClient.set(roomID, agentInstanceId);
       }
     } else {
       // 后续用户：加入已有的 Group Agent 实例
@@ -198,9 +246,11 @@ app.post('/startRecord', async (req, res) => {
     }
 
     const result = await agent.startRecord(roomID);
+    const mixedResult = await agent.startMixedRecord(roomID);
 
     return res.json({
         taskId: result.Data.TaskId,
+        mixedTaskId: mixedResult.Data.TaskId,
       ...result
     });
   } catch (e) {
@@ -211,7 +261,7 @@ app.post('/startRecord', async (req, res) => {
 
 app.post('/stopRecord', async (req, res) => {
   try {
-    const { taskId, roomId ,agentId} = req.body || {};
+    const { taskId, roomId ,agentId,mixedTaskId} = req.body || {};
 
     if (!taskId) {
       console.log(taskId, 'is null');
@@ -220,12 +270,13 @@ app.post('/stopRecord', async (req, res) => {
 
     const agent = ZegoAIAgent.getInstance();
     const result = await agent.stopRecord(taskId);
+    const mixedResult = await agent.stopRecord(mixedTaskId);
 
     const resp = await agent.describeUserNum(roomId);
     const num = resp.Data.UserCountList[0].UserCount || 0;
     if (num === 2){
       console.log('clear roomGroupAgentMap');
-      roomGroupAgentMap.delete(roomId);
+      await redisClient.delete(roomId);
 
       if (agentId) {
         await agent.deleteAgentInstance(agentId);
@@ -233,7 +284,8 @@ app.post('/stopRecord', async (req, res) => {
     }
 
     return res.json({
-      ...result
+      result,
+      mixedResult,
     });
   } catch (e) {
     console.error('[startRecord] 处理失败：', e);
@@ -243,6 +295,12 @@ app.post('/stopRecord', async (req, res) => {
 
 app.post('/recordCallback', async (req, res) => {
   console.log('record callback',JSON.stringify(req.body));
+
+  return res.json({});
+})
+
+app.post('/commonCallback', async (req, res) => {
+  console.log('common callback',JSON.stringify(req.body));
 
   return res.json({});
 })
