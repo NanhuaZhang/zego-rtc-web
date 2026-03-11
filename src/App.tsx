@@ -27,6 +27,7 @@ function App() {
   const [mixedTaskId, setMixedTaskId] = useState<string | undefined>(undefined);
   const [token, setToken] = useState<string>(TOKEN_PLACEHOLDER); // 正式环境请从你的业务服务器获取 token
   const [agentId, setAgentId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
+  const [agentInstanceId, setAgentInstanceId] = useState<string | undefined>(undefined); // 正式环境请从你的业务服务器获取 token
 
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [isInRoom, setIsInRoom] = useState<boolean>(false);
@@ -155,10 +156,10 @@ function App() {
     try {
       const zg = ensureEngine();
       try {
-        const groupAgentEnterUrl = IS_DEV
+        const checkUrl = IS_DEV
             ? 'http://localhost:3001/check'
             : 'https://ots-ai-review.appendata.com:8082/check';
-        const resp = await fetch(groupAgentEnterUrl, {
+        const resp = await fetch(checkUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -235,7 +236,9 @@ function App() {
         });
         const json = await resp.json();
         const agentId = json.agentId;
+        const agentInstanceId = json.agentInstanceId;
         setAgentId(agentId);
+        setAgentInstanceId(agentInstanceId);
 
       } catch (e) {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
@@ -327,6 +330,26 @@ function App() {
       setIsInRoom(false);
     }
   }, [remoteStreams, localStream, roomID, userID, taskId, agentId, mixedTaskId]);
+
+  const handleInterrupt = useCallback(async () => {
+    try {
+      const interruptUrl = IS_DEV
+          ? 'http://localhost:3001/interrupt'
+          : 'https://ots-ai-review.appendata.com:8082/interrupt';
+      await fetch(interruptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentInstanceId
+        }),
+      });
+
+    } catch (e) {
+      console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
+    }
+  },[agentInstanceId])
 
   const handleToggleMute = useCallback(() => {
     if (!localStream) return;
@@ -472,10 +495,10 @@ function App() {
                   {stream.userName || stream.userID || stream.streamID}
                   {(stream.userName || stream.userID || stream.streamID) && <>
                       <>
-                        {agentStatus === 'SPEAKING' && <span>正在说话 <Button>打断</Button></span>}
+                        {agentStatus === 'SPEAKING' && <span>  :正在说话 <Button size={"small"} onClick={handleInterrupt}>打断</Button></span>}
                       </>
                       <>
-                        {agentStatus === 'LISTENING' && '正在听'}
+                        {agentStatus === 'LISTENING' && '  :正在听'}
                       </>
                   </>
                   }

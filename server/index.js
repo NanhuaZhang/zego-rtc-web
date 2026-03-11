@@ -156,6 +156,22 @@ app.post('/check', async (req, res) => {
   }
 })
 
+app.post('/interrupt', async (req, res) => {
+  try {
+    const {agentInstanceId} = req.body || {};
+    const agent = ZegoAIAgent.getInstance();
+    const result = await agent.interruptAgentInstance(agentInstanceId);
+    return res.json({
+      code: 0,
+      result
+    })
+  }catch(e) {
+    console.error('[interrupt] 处理失败：', e?.response?.data || e);
+    return res.status(500).json({ code: 500, msg: 'interrupt 接口调用失败' });
+  }
+})
+
+
 // 前端只需要调用这个接口：服务器内部根据是否已经有实例自动选择 Create 或 Join
 app.post('/group-agent/enter', async (req, res) => {
   try {
