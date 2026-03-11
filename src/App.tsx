@@ -51,17 +51,19 @@ function App() {
       evtSourceRef.current.close();
     }
 
-    evtSourceRef.current = new EventSource( IS_DEV
-        ? 'http://localhost:3001/events?roomId=' + roomID
-        : 'https://ots-ai-review.appendata.com:8082/events?roomId=' + roomID,);
+    if (isInRoom) {
+      evtSourceRef.current = new EventSource(IS_DEV
+          ? 'http://localhost:3001/events?roomId=' + roomID
+          : 'https://ots-ai-review.appendata.com:8082/events?roomId=' + roomID,);
 
-    evtSourceRef.current.onmessage = (event)=>{
-      const data = JSON.parse(event.data);
-      if (data.type === 'private'){
-        setAgentStatus(data.status);
+      evtSourceRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'private') {
+          setAgentStatus(data.status);
+        }
       }
     }
-  }, [roomID]);
+  }, [isInRoom, roomID]);
 
   const ensureEngine = useCallback(() => {
     if (engineRef.current) return engineRef.current;
