@@ -171,7 +171,7 @@ app.post('/interrupt', async (req, res) => {
   }
 })
 
-app.post('/agent', async (req, res) => {
+app.post('/mute', async (req, res) => {
   try {
     const {isAgentMuted,agentInstanceId} = req.body || {};
     await redisClient.set(agentInstanceId+'_mute',isAgentMuted ? 1:0);
