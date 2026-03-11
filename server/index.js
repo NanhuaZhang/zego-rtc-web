@@ -47,7 +47,7 @@ async function folderExists(folderPath) {
   }
 
   try {
-    const res = await tosClient.listObjectsV2({
+    const res = await tosClient.listObjects({
       prefix: folderPath,
       maxKeys: 1,  // 只需要检查是否有对象
     });
