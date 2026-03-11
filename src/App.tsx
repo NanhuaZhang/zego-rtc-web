@@ -48,8 +48,8 @@ function App() {
 
   useEffect(() => {
     evtSourceRef.current = new EventSource( IS_DEV
-        ? 'http://localhost:3001/events'
-        : 'https://ots-ai-review.appendata.com:8082/events');
+        ? 'http://localhost:3001/events?roomId=' + roomID
+        : 'https://ots-ai-review.appendata.com:8082/events?roomId=' + roomID,);
     if (evtSourceRef.current) {
       evtSourceRef.current.onmessage = (event)=>{
         const data = JSON.parse(event.data);
