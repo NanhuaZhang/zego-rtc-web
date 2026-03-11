@@ -405,7 +405,10 @@ class ZegoAIAgent {
       "RecordInputParams": {
         "RecordMode": 2,
         "StreamType": 1,
-        "MaxIdleTime": 60
+        "MaxIdleTime": 60,
+        MixConfig:{
+          MixOutputStreamId: 'MixOutputStreamId',
+        }
       },
       "RecordOutputParams": {
         "OutputFileFormat": "mp3",
