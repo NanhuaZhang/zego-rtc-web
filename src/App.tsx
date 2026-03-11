@@ -59,7 +59,7 @@ function App() {
       evtSourceRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'private') {
-          setAgentStatus(data.status);
+          setAgentStatus(data.msg);
         }
       }
     }
