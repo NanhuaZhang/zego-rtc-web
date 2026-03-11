@@ -243,8 +243,10 @@ app.post('/group-agent/enter', async (req, res) => {
 app.post('/asr-asrresult', async (req, res) => {
   try {
     const data = (req.body && req.body.Data) || {};
-    const { UserId, MessageId, Text ,AgentInstanceId} = data;
+    const {AgentInstanceId} = req.body || {};
+    const { UserId, MessageId, Text } = data;
 
+    console.log(JSON.stringify(data));
     const isAgentMuted = await redisClient.get(AgentInstanceId+'_mute',)
     if (isAgentMuted === 1) {
       console.log('isAgentMuted', isAgentMuted);
