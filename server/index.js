@@ -247,6 +247,7 @@ app.post('/asr-asrresult', async (req, res) => {
 
     const isAgentMuted = await redisClient.get(AgentInstanceId+'_mute',)
     if (isAgentMuted === 1) {
+      console.log('isAgentMuted', isAgentMuted);
       return res.json({})
     }
 
