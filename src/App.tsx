@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 import {useLocation} from "react-router-dom";
-import {message} from "antd";
+import {Button, message} from "antd";
 
 type ZegoRemoteStream = {
   streamID: string;
@@ -37,11 +37,28 @@ function App() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<ZegoRemoteStream[]>([]);
 
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
+
   const engineRef = useRef<ZegoExpressEngine | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const evtSourceRef = useRef<EventSource | null>(null);
 
   const location = useLocation()
   const isSingle = location.pathname.includes("single")
+
+  useEffect(() => {
+    evtSourceRef.current = new EventSource( IS_DEV
+        ? 'http://localhost:3001/events'
+        : 'https://ots-ai-review.appendata.com:8082/events');
+    if (evtSourceRef.current) {
+      evtSourceRef.current.onmessage = (event)=>{
+        const data = JSON.parse(event.data);
+        if (data.type === 'private'){
+          setAgentStatus(data.status);
+        }
+      }
+    }
+  }, []);
 
   const ensureEngine = useCallback(() => {
     if (engineRef.current) return engineRef.current;
@@ -448,6 +465,15 @@ function App() {
                 />
                 <div className="zego-remote-info">
                   {stream.userName || stream.userID || stream.streamID}
+                  {(stream.userName || stream.userID || stream.streamID) && <>
+                      <>
+                        {agentStatus === 'SPEAKING' && <span>正在说话 <Button>打断</Button></span>}
+                      </>
+                      <>
+                        {agentStatus === 'LISTENING' && '正在听'}
+                      </>
+                  </>
+                  }
                 </div>
               </div>
             ))}

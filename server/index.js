@@ -26,7 +26,7 @@ const redisClient = createClient({
   url: 'redis://localhost:6379'
 });
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
-// redisClient.connect();
+redisClient.connect();
 
 const tosClient = new TosClient({
   accessKeyId: process.env.API_ACCESS_KEY,
@@ -303,9 +303,48 @@ app.post('/recordCallback', async (req, res) => {
 
 app.post('/commonCallback', async (req, res) => {
   console.log('common callback',JSON.stringify(req.body));
-
+  const {Event,RoomId,Data} = req.body || {};
+  if (Event === 'AgentInstanceStatus'){
+    const targetClient = clients.get(RoomId);
+    if (targetClient) {
+      targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n`);
+      console.log(`消息已发给 ${RoomId}`);
+      res.json({ success: true, info: `消息已发给 ${RoomId}` });
+    } else {
+      res.json({});
+    }
+  }
   return res.json({});
 })
+
+// 使用 Map 存储：key 是 userId, value 是 res 对象
+const clients = new Map();
+
+// 1. SSE 连接接口
+app.get('/events', (req, res) => {
+  const roomId = req.query.roomId; // 从 URL 获取用户 ID，例如 /events?roomId=user123
+
+  if (!roomId) {
+    return res.status(400).send('需要 roomId');
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // 将客户端存入 Map
+  clients.set(roomId, res);
+  console.log(`用户 ${roomId} 已连接。当前在线: ${clients.size}`);
+
+  // 发送连接成功确认
+  res.write(`data: ${JSON.stringify({ type: 'system', msg: `已成功连接，你的 ID 是 ${roomId}` })}\n\n`);
+
+  // 处理断开连接
+  req.on('close', () => {
+    clients.delete(roomId);
+    console.log(`用户 ${roomId} 断开连接。剩余在线: ${clients.size}`);
+  });
+});
 
 app.listen(port, "0.0.0.0",() => {
   console.log(`[zego-token-server] 启动成功，端口: ${port}`);
