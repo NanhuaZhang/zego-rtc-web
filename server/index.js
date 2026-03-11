@@ -307,7 +307,7 @@ app.post('/commonCallback', async (req, res) => {
   if (Event === 'AgentInstanceStatus'){
     const targetClient = clients.get(RoomId);
     if (targetClient) {
-      targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n`);
+      targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n\n`);
       console.log(`消息已发给 ${RoomId}`);
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
