@@ -521,7 +521,7 @@ function App() {
                 />
                 <div className="zego-remote-info">
                   {stream.userName || stream.userID || stream.streamID}
-                  {(stream.userName || stream.userID || stream.streamID) && <>
+                  {stream.streamID.startsWith('stream_agent_')&& <>
                       <>
                         {agentStatus === 'SPEAKING' && <span>  :正在说话 <Button size={"small"} onClick={handleInterrupt}>打断</Button></span>}
                       </>
