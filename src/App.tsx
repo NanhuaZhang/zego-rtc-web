@@ -13,7 +13,7 @@ type ZegoRemoteStream = {
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
-const APP_ID_PLACEHOLDER = Number(process.env.REACT_APP_ZEGO_APP_ID || 1814816985); // 在 .env 里配置 REACT_APP_ZEGO_APP_ID
+const APP_ID_PLACEHOLDER = Number(process.env.REACT_APP_ZEGO_APP_ID || 430425956); // 在 .env 里配置 REACT_APP_ZEGO_APP_ID
 const SERVER_PLACEHOLDER = process.env.REACT_APP_ZEGO_SERVER || 'wss://accesshub-wss.zego.im/accesshub'; // 在 .env 里配置 REACT_APP_ZEGO_SERVER
 const TOKEN_PLACEHOLDER = process.env.REACT_APP_ZEGO_TOKEN || ''; // demo：可在 .env 里配置一个固定 token，正式建议从服务端获取
 
