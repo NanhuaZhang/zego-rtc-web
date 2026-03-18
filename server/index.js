@@ -282,11 +282,11 @@ app.post('/startRecord', async (req, res) => {
     }
 
     const result = await agent.startRecord(roomID);
-    const mixedResult = await agent.startMixedRecord(roomID);
+    // const mixedResult = await agent.startMixedRecord(roomID);
 
     return res.json({
         taskId: result.Data.TaskId,
-        mixedTaskId: mixedResult.Data.TaskId,
+        // mixedTaskId: mixedResult.Data.TaskId,
       ...result
     });
   } catch (e) {
@@ -306,7 +306,7 @@ app.post('/stopRecord', async (req, res) => {
 
     const agent = ZegoAIAgent.getInstance();
     const result = await agent.stopRecord(taskId);
-    const mixedResult = await agent.stopRecord(mixedTaskId);
+    // const mixedResult = await agent.stopRecord(mixedTaskId);
 
     const resp = await agent.describeUserNum(roomId);
     const num = resp.Data.UserCountList[0].UserCount || 0;
@@ -323,7 +323,7 @@ app.post('/stopRecord', async (req, res) => {
 
     return res.json({
       result,
-      mixedResult,
+      // mixedResult,
     });
   } catch (e) {
     console.error('[startRecord] 处理失败：', e);
