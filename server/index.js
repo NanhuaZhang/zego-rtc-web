@@ -61,6 +61,35 @@ async function folderExists(folderPath) {
   }
 }
 
+function getRoomUsedKey(roomID) {
+  return `room_used:${roomID}`;
+}
+
+function getRoomAgentKey(roomID) {
+  return `room_agent:${roomID}`;
+}
+
+function getAgentMuteKey(agentInstanceId) {
+  return `agent_mute:${agentInstanceId}`;
+}
+
+async function isRoomUsedInRedis(roomID) {
+  const used = await redisClient.get(getRoomUsedKey(roomID));
+  return used === '1';
+}
+
+async function markRoomUsed(roomID) {
+  await redisClient.set(getRoomUsedKey(roomID), '1');
+}
+
+async function getRoomAgentInstanceId(roomID) {
+  return redisClient.get(getRoomAgentKey(roomID));
+}
+
+async function setRoomAgentInstanceId(roomID, agentInstanceId) {
+  await redisClient.set(getRoomAgentKey(roomID), agentInstanceId);
+}
+
 // ====== token 接口（返回静态 token）======
 app.get('/token', (req, res) => {
   try {
@@ -145,10 +174,25 @@ const agentName = '李浩然';
 app.post('/check', async (req, res) => {
   try {
     const {roomID} = req.body || {};
-    const existRoom = await folderExists(roomID);
+    if (!roomID) {
+      return res.status(400).json({ code: 400, msg: '缺少 roomID' });
+    }
+
+    const [existRoomInRedis, existRoomInTos] = await Promise.all([
+      isRoomUsedInRedis(roomID),
+      folderExists(roomID),
+    ]);
+    const existRoom = existRoomInRedis || existRoomInTos;
+
+    if (!existRoomInRedis && existRoomInTos) {
+      await markRoomUsed(roomID);
+    }
+
     return res.json({
       code: 0,
-      existRoom
+      existRoom,
+      existRoomInRedis,
+      existRoomInTos,
     })
   }catch(e) {
     console.error('[check] 处理失败：', e?.response?.data || e);
@@ -174,7 +218,7 @@ app.post('/interrupt', async (req, res) => {
 app.post('/mute', async (req, res) => {
   try {
     const {isAgentMuted,agentInstanceId} = req.body || {};
-    await redisClient.set(agentInstanceId+'_mute',isAgentMuted ? 1:0);
+    await redisClient.set(getAgentMuteKey(agentInstanceId), isAgentMuted ? 1 : 0);
     return res.json({
       code: 0,
     })
@@ -193,7 +237,7 @@ app.post('/group-agent/enter', async (req, res) => {
     }
 
     const agent = ZegoAIAgent.getInstance();
-    let agentInstanceId = await redisClient.get(roomID);
+    let agentInstanceId = await getRoomAgentInstanceId(roomID);
     let result;
 
     // 如果前端没有传 RTC 信息，这里根据房间做一个最简单的占位结构
@@ -215,7 +259,7 @@ app.post('/group-agent/enter', async (req, res) => {
         result.AgentInstanceId ||
         null;
       if (agentInstanceId) {
-        await redisClient.set(roomID, agentInstanceId);
+        await setRoomAgentInstanceId(roomID, agentInstanceId);
       }
     } else {
       // 后续用户：加入已有的 Group Agent 实例
@@ -246,7 +290,7 @@ app.post('/asr-asrresult', async (req, res) => {
     const {AgentInstanceId} = req.body || {};
     const { UserId, MessageId, Text } = data;
 
-    const isAgentMuted = await redisClient.get(AgentInstanceId+'_mute',)
+    const isAgentMuted = await redisClient.get(getAgentMuteKey(AgentInstanceId))
     if (isAgentMuted === '1') {
       return res.json({})
     }
@@ -282,6 +326,7 @@ app.post('/startRecord', async (req, res) => {
     }
 
     const result = await agent.startRecord(roomID);
+    await markRoomUsed(roomID);
     // const mixedResult = await agent.startMixedRecord(roomID);
 
     return res.json({
@@ -313,8 +358,8 @@ app.post('/stopRecord', async (req, res) => {
     // 两个录制+一个人
     if (num === 3){
       console.log('clear roomGroupAgentMap');
-      await redisClient.delete(roomId);
-      await redisClient.delete(agentInstanceId+'_mute');
+      await redisClient.delete(getRoomAgentKey(roomId));
+      await redisClient.delete(getAgentMuteKey(agentInstanceId));
 
       if (agentInstanceId) {
         await agent.deleteAgentInstance(agentInstanceId);
@@ -344,6 +389,15 @@ app.post('/commonCallback', async (req, res) => {
     const targetClient = clients.get(RoomId);
     if (targetClient) {
       targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n\n`);
+      console.log(`消息已发给 ${RoomId}`);
+      return res.json({ success: true, info: `消息已发给 ${RoomId}` });
+    } else {
+      return res.json({});
+    }
+  }else if (Event === 'UserSpeakAction'){
+    const targetClient = clients.get(RoomId);
+    if (targetClient) {
+      targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Action })}\n\n`);
       console.log(`消息已发给 ${RoomId}`);
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
@@ -385,4 +439,3 @@ app.get('/events', (req, res) => {
 app.listen(port, "0.0.0.0",() => {
   console.log(`[zego-token-server] 启动成功，端口: ${port}`);
 });
-

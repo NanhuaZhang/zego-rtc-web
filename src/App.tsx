@@ -490,6 +490,9 @@ function App() {
       <div className="zego-video-layout">
         <div className="zego-video-panel">
           <h2>本地视频</h2>
+          <>
+            {agentStatus === 'SPEAK_BEGIN' && '正在说'}
+          </>
           <video
             ref={localVideoRef}
             autoPlay
@@ -527,6 +530,9 @@ function App() {
                       </>
                       <>
                         {agentStatus === 'LISTENING' && '  :正在听'}
+                      </>
+                      <>
+                        {isAgentMuted === false && '  :关闭'}
                       </>
                   </>
                   }
