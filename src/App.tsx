@@ -532,7 +532,7 @@ function App() {
                         {agentStatus === 'LISTENING' && '  :正在听'}
                       </>
                       <>
-                        {isAgentMuted === false && '  :关闭'}
+                        {isAgentMuted && '  :关闭'}
                       </>
                   </>
                   }

@@ -263,7 +263,7 @@ class ZegoAIAgent {
     ttsConfig = null,
     asrConfig = null,
     messageHistory = null,
-    callbackConfig = { AgentInstanceStatus:1 },
+    callbackConfig = { AgentInstanceStatus:1 ,UserSpeakAction:1},
     advancedConfig = null
   ) {
     const action = 'CreateGroupAgentInstance';
