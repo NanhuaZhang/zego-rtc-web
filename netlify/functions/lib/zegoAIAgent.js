@@ -84,7 +84,32 @@ class ZegoAIAgent {
     return resp.data;
   }
 
-  async createGroupAgentInstance(agentId, userId, rtcInfo) {
+  getAliyunParaformerAsrConfig() {
+    return {
+      Vendor: 'AliyunParaformer',
+      Params: {
+        "payload": {
+          "model": "paraformer-realtime-v2",
+          "parameters": {
+          }
+        }},
+      PauseInterval: 2000,
+    };
+  }
+
+  buildAsrConfig(asrVendor) {
+    if (!asrVendor) {
+      return null;
+    }
+
+    if (String(asrVendor).trim().toLowerCase() === 'aliyunparaformer') {
+      return this.getAliyunParaformerAsrConfig();
+    }
+
+    return null;
+  }
+
+  async createGroupAgentInstance(agentId, userId, rtcInfo, asrConfig = null) {
     const action = 'CreateGroupAgentInstance';
     const body = {
       AgentId: agentId,
@@ -95,6 +120,7 @@ class ZegoAIAgent {
         Messages: [],
         WindowSize: 10,
       },
+      ASR: asrConfig,
       CustomNodes: [
         {
           Type: 'HTTP',
@@ -162,4 +188,3 @@ module.exports = {
   ZegoAIAgent,
   CONSTANTS,
 };
-

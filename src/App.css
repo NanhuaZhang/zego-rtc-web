@@ -54,6 +54,45 @@
   box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.4);
 }
 
+.zego-info-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.zego-info-title {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.zego-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.zego-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zego-info-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.zego-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f8fafc;
+  word-break: break-word;
+}
+
 .zego-actions {
   margin-top: 12px;
   display: flex;
@@ -157,6 +196,10 @@
 
 @media (max-width: 900px) {
   .zego-video-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zego-info-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

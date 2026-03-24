@@ -11,11 +11,76 @@ type ZegoRemoteStream = {
   userName?: string;
 };
 
+type RoomConfig = {
+  isSingle: boolean;
+  asrVendor?: string;
+};
+
 const IS_DEV = process.env.NODE_ENV === 'development';
 
 const APP_ID_PLACEHOLDER = Number(process.env.REACT_APP_ZEGO_APP_ID || 430425956); // 在 .env 里配置 REACT_APP_ZEGO_APP_ID
 const SERVER_PLACEHOLDER = process.env.REACT_APP_ZEGO_SERVER || 'wss://accesshub-wss.zego.im/accesshub'; // 在 .env 里配置 REACT_APP_ZEGO_SERVER
 const TOKEN_PLACEHOLDER = process.env.REACT_APP_ZEGO_TOKEN || ''; // demo：可在 .env 里配置一个固定 token，正式建议从服务端获取
+
+function getRequestedAsr(pathname: string, search: string): string | undefined {
+  const searchParams = new URLSearchParams(search);
+  const queryAsr = searchParams.get('asr')?.trim();
+  if (queryAsr) {
+    return queryAsr;
+  }
+
+  const pathSegments = pathname
+    .split('/')
+    .map(segment => segment.trim())
+    .filter(Boolean);
+  const lastSegment = pathSegments[pathSegments.length - 1];
+
+  if (!lastSegment) {
+    return undefined;
+  }
+
+  if (['single', 'multi'].includes(lastSegment.toLowerCase())) {
+    return undefined;
+  }
+
+  return decodeURIComponent(lastSegment);
+}
+
+function normalizeAsrVendor(rawAsr?: string): string | undefined {
+  if (!rawAsr) {
+    return undefined;
+  }
+
+  const normalized = rawAsr.trim().toLowerCase();
+  if (normalized === 'aliyunparaformer') {
+    return 'AliyunParaformer';
+  }
+
+  return undefined;
+}
+
+function normalizeRoomConfig(roomConfig?: Partial<RoomConfig> | null): RoomConfig | null {
+  if (!roomConfig) {
+    return null;
+  }
+
+  return {
+    isSingle: Boolean(roomConfig.isSingle),
+    asrVendor: normalizeAsrVendor(roomConfig.asrVendor),
+  };
+}
+
+function formatRoomMode(isSingle: boolean): string {
+  return isSingle ? 'single' : 'multi';
+}
+
+function formatAsrLabel(asrVendor?: string): string {
+  return asrVendor || '默认';
+}
+
+function isSameRoomConfig(left: RoomConfig, right: RoomConfig): boolean {
+  return left.isSingle === right.isSingle && left.asrVendor === right.asrVendor;
+}
 
 function App() {
   const [appID, setAppID] = useState<number>(APP_ID_PLACEHOLDER);
@@ -40,13 +105,46 @@ function App() {
   const [remoteStreams, setRemoteStreams] = useState<ZegoRemoteStream[]>([]);
 
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const [effectiveRoomConfig, setEffectiveRoomConfig] = useState<RoomConfig | null>(null);
 
   const engineRef = useRef<ZegoExpressEngine | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const evtSourceRef = useRef<EventSource | null>(null);
+  const roomConfigWarningRef = useRef<string | null>(null);
 
   const location = useLocation()
   const isSingle = location.pathname.includes("single")
+  const asrVendor = normalizeAsrVendor(getRequestedAsr(location.pathname, location.search));
+
+  const syncRoomConfig = useCallback((serverRoomConfig?: Partial<RoomConfig> | null) => {
+    const normalizedServerConfig = normalizeRoomConfig(serverRoomConfig);
+    if (!normalizedServerConfig) {
+      return;
+    }
+
+    const requestedRoomConfig: RoomConfig = {
+      isSingle,
+      asrVendor,
+    };
+    setEffectiveRoomConfig(normalizedServerConfig);
+    const warningKey = JSON.stringify(normalizedServerConfig);
+    if (
+      !isSameRoomConfig(normalizedServerConfig, requestedRoomConfig) &&
+      roomConfigWarningRef.current !== warningKey
+    ) {
+      roomConfigWarningRef.current = warningKey;
+      message.warning(
+        `当前房间已锁定为 ${formatRoomMode(normalizedServerConfig.isSingle)} / ${formatAsrLabel(normalizedServerConfig.asrVendor)}，将按该配置继续。`
+      );
+    }
+  }, [isSingle, asrVendor]);
+
+  useEffect(() => {
+    if (!isInRoom) {
+      setEffectiveRoomConfig(null);
+      roomConfigWarningRef.current = null;
+    }
+  }, [roomID, isInRoom]);
 
   useEffect(() => {
     if (evtSourceRef.current) {
@@ -229,6 +327,8 @@ function App() {
           body: JSON.stringify({
             roomID,
             userID,
+            isSingle,
+            asrVendor,
             rtcInfo: {
               RoomId: roomID,
               UserStreamId: localStreamID,
@@ -238,6 +338,7 @@ function App() {
         const json = await resp.json();
         const agentInstanceId = json.agentInstanceId;
         setAgentInstanceId(agentInstanceId);
+        syncRoomConfig(json.roomConfig);
 
       } catch (e) {
         console.error('调用 group-agent 接口失败，仅作为警告，不阻塞入会：', e);
@@ -258,13 +359,15 @@ function App() {
           },
           body: JSON.stringify({
             roomID,
-            isSingle
+            isSingle,
+            asrVendor
           }),
         });
 
         const taskData= await resp.json();
         setTaskId(taskData.taskId);
         setMixedTaskId(taskData.mixedTaskId);
+        syncRoomConfig(taskData.roomConfig);
       } catch (e) {
         console.error('调用 startRecord 接口失败，仅作为警告，不阻塞入会：', e);
       }
@@ -274,7 +377,7 @@ function App() {
     } finally {
       setIsInitializing(false);
     }
-  }, [roomID, userID, userName, ensureEngine, token, isSingle]);
+  }, [roomID, userID, userName, ensureEngine, token, isSingle, asrVendor, syncRoomConfig]);
 
   const handleLeaveRoom = useCallback(async () => {
     const zg = engineRef.current;
@@ -299,6 +402,8 @@ function App() {
       setIsMuted(false);
       setAgentMuted(false);
       setRemoteStreams([]);
+      setEffectiveRoomConfig(null);
+      roomConfigWarningRef.current = null;
       zg.logoutRoom(roomID);
 
       try {
@@ -449,6 +554,27 @@ function App() {
             value={userName}
             onChange={e => setUserName(e.target.value)}
           />
+        </div>
+        <div className="zego-info-panel">
+          <div className="zego-info-title">当前配置</div>
+          <div className="zego-info-grid">
+            <div className="zego-info-item">
+              <span className="zego-info-label">请求ASR</span>
+              <span className="zego-info-value">{formatAsrLabel(asrVendor)}</span>
+            </div>
+            <div className="zego-info-item">
+              <span className="zego-info-label">房间模式</span>
+              <span className="zego-info-value">
+                {effectiveRoomConfig ? formatRoomMode(effectiveRoomConfig.isSingle) : formatRoomMode(isSingle)}
+              </span>
+            </div>
+            <div className="zego-info-item">
+              <span className="zego-info-label">生效ASR</span>
+              <span className="zego-info-value">
+                {effectiveRoomConfig ? formatAsrLabel(effectiveRoomConfig.asrVendor) : formatAsrLabel(asrVendor)}
+              </span>
+            </div>
+          </div>
         </div>
         <div className="zego-actions">
           <button

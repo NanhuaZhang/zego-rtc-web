@@ -15,7 +15,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { roomID, userID, rtcInfo } = body || {};
+    const { roomID, userID, rtcInfo, asrVendor } = body || {};
 
     if (!roomID || !userID) {
       return {
@@ -26,6 +26,7 @@ exports.handler = async (event) => {
 
     const agent = ZegoAIAgent.getInstance();
     let agentInstanceId = roomAgentInstanceMap.get(roomID);
+    const asrConfig = agent.buildAsrConfig(asrVendor);
 
     // 如果前端没有传 RTC 信息，这里根据房间做一个最简单的占位结构
     const rtc = {
@@ -36,7 +37,7 @@ exports.handler = async (event) => {
     };
     let result;
     if (!agentInstanceId) {
-      result = await agent.createGroupAgentInstance(CONSTANTS.AGENT_ID, userID, rtc);
+      result = await agent.createGroupAgentInstance(CONSTANTS.AGENT_ID, userID, rtc, asrConfig);
       agentInstanceId =
         (result &&
           result.Data &&
@@ -69,4 +70,3 @@ exports.handler = async (event) => {
     };
   }
 };
-

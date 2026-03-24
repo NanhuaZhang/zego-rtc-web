@@ -1,5 +1,6 @@
 const { createHash } = require('crypto');
 const axios = require('axios');
+const { extractError, log } = require('./logger');
 
 /**
  * 判断两个对象是否相等
@@ -37,7 +38,6 @@ function isEqual(obj1, obj2) {
 
   return true;
 }
-
 
 const SYSTEM_PROMPT = `
 一、基础人设
@@ -136,6 +136,7 @@ class ZegoAIAgent {
   async sendRequest(action, body, baseURL, method = 'POST') {
     const commonParams = this.generateCommonParams(action);
     const url = this.buildUrl(action, commonParams, baseURL);
+    const startedAt = Date.now();
 
     const config = {
       method,
@@ -146,10 +147,28 @@ class ZegoAIAgent {
       data: body || undefined,
     };
 
-    console.log(action, body);
-    const response = await axios(config);
-    console.log(action, JSON.stringify(response.data));
-    return response.data;
+    log('log', 'zego-ai-agent', 'sending request', {
+      action,
+      method,
+      url,
+      body,
+    });
+    try {
+      const response = await axios(config);
+      log('log', 'zego-ai-agent', 'request completed', {
+        action,
+        durationMs: Date.now() - startedAt,
+        response: response.data,
+      });
+      return response.data;
+    } catch (error) {
+      log('error', 'zego-ai-agent', 'request failed', {
+        action,
+        durationMs: Date.now() - startedAt,
+        error: extractError(error),
+      });
+      throw error;
+    }
   }
 
   getDefaultAgentConfig() {
@@ -190,18 +209,35 @@ class ZegoAIAgent {
     };
   }
 
+  getAliyunParaformerAsrConfig() {
+    return {
+      Vendor: 'AliyunParaformer',
+      Params: {},
+      PauseInterval: 2000,
+    };
+  }
+
+  getDesiredAgentConfig(llmConfig = null, ttsConfig = null, asrConfig = null) {
+    const { LLM, TTS, ASR } = this.getDefaultAgentConfig();
+    return {
+      LLM: llmConfig || LLM,
+      TTS: ttsConfig || TTS,
+      ASR: asrConfig || ASR,
+    };
+  }
+
   async registerAgent(agentId, agentName, llmConfig = null, ttsConfig = null, asrConfig = null) {
     if (!process.env.LLM_BASE_URL || !process.env.LLM_API_KEY || !process.env.LLM_MODEL) {
       throw new Error('LLM_BASE_URL、LLM_API_KEY 和 LLM_MODEL 必须在环境变量中配置');
     }
-    const { LLM, TTS, ASR } = this.getDefaultAgentConfig();
+    const { LLM, TTS, ASR } = this.getDesiredAgentConfig(llmConfig, ttsConfig, asrConfig);
     const action = 'RegisterAgent';
     const body = {
       AgentId: agentId,
       Name: agentName,
-      LLM: llmConfig || LLM,
-      TTS: ttsConfig || TTS,
-      ASR: asrConfig || ASR,
+      LLM,
+      TTS,
+      ASR,
     };
     return this.sendRequest(action, body);
   }
@@ -221,7 +257,10 @@ class ZegoAIAgent {
       AgentInstanceId: agentInstanceId
     };
     const result = await this.sendRequest(action, body);
-    console.log("delete agent instance result", result);
+    log('log', 'zego-ai-agent', 'agent instance deleted', {
+      agentInstanceId,
+      result,
+    });
     return result;
   }
 
@@ -234,7 +273,11 @@ class ZegoAIAgent {
     if (cursor) body.Cursor = cursor;
 
     const result = await this.sendRequest(action, body);
-    console.log("list agents result", result);
+    log('log', 'zego-ai-agent', 'listed agents', {
+      limit,
+      cursor,
+      result,
+    });
     return result;
   }
 
@@ -277,6 +320,18 @@ class ZegoAIAgent {
     return result;
   }
 
+  buildAsrConfig(asrVendor) {
+    if (!asrVendor) {
+      return null;
+    }
+
+    if (String(asrVendor).trim().toLowerCase() === 'aliyunparaformer') {
+      return this.getAliyunParaformerAsrConfig();
+    }
+
+    return null;
+  }
+
   async joinGroupAgentInstance(agentInstanceId, userId, rtcInfo) {
     const action = 'JoinGroupAgentInstance';
     const body = {
@@ -289,25 +344,41 @@ class ZegoAIAgent {
   }
 
   // 智能体注册逻辑
-  async ensureAgentRegistered(agentId, agentName){
+  async ensureAgentRegistered(agentId, agentName, asrConfig = null){
     try {
       const agents = await this.queryAgents([agentId]);
       const agentExists = agents?.length > 0 &&
           agents.find((agent) => agent.AgentId === agentId);
 
       if (!agentExists) {
-        await this.registerAgent(agentId, agentName);
-        console.log(`智能体注册成功: ${agentId}`);
+        await this.registerAgent(agentId, agentName, null, null, asrConfig);
+        log('log', 'zego-ai-agent', 'agent registered', {
+          agentId,
+          agentName,
+          asrConfig,
+        });
       } else {
-        console.log(`智能体已存在: ${agentId}`);
-        const isConfigEqual = this.compareAgentConfig(agentExists)
-        console.log('isConfigEqual', isConfigEqual)
+        log('log', 'zego-ai-agent', 'agent already exists', {
+          agentId,
+          agentName,
+        });
+        const isConfigEqual = this.compareAgentConfig(agentExists, null, null, asrConfig)
+        log('log', 'zego-ai-agent', 'agent config compared', {
+          agentId,
+          isConfigEqual,
+          asrConfig,
+        });
         if (!isConfigEqual) {
-          await this.updateAgent(agentId, agentName);
+          await this.updateAgent(agentId, agentName, null, null, asrConfig);
         }
       }
     } catch (error) {
-      console.error(`智能体注册失败: ${agentId}`, error);
+      log('error', 'zego-ai-agent', 'failed to ensure agent registration', {
+        agentId,
+        agentName,
+        asrConfig,
+        error: extractError(error),
+      });
       throw new Error(`智能体注册失败: ${error.message}`);
     }
   }
@@ -316,33 +387,44 @@ class ZegoAIAgent {
     if (!process.env.LLM_BASE_URL || !process.env.LLM_API_KEY || !process.env.LLM_MODEL) {
       throw new Error('LLM_BASE_URL, LLM_API_KEY and LLM_MODEL environment variables must be set');
     }
-    const { LLM, TTS, ASR } = await this.getDefaultAgentConfig();
+    const { LLM, TTS, ASR } = this.getDesiredAgentConfig(llmConfig, ttsConfig, asrConfig);
     // https://aigc-aiagent-api.zegotech.cn?Action=UpdateAgent
     const action = 'UpdateAgent';
     const body = {
       AgentId: agentId,
       Name: agentName,
-      LLM: llmConfig || LLM,
-      TTS: ttsConfig || TTS,
-      ASR: asrConfig || ASR
-    };
-    console.log('updateAgent body', body)
-    return this.sendRequest(action, body);
-  }
-
-  compareAgentConfig(config) {
-    const { LLM, TTS, ASR } = this.getDefaultAgentConfig();
-    const defaultConfig = {
       LLM,
       TTS,
       ASR
-    }
+    };
+    log('log', 'zego-ai-agent', 'updating agent', {
+      agentId,
+      agentName,
+      body,
+    });
+    return this.sendRequest(action, body);
+  }
+
+  compareAgentConfig(config, llmConfig = null, ttsConfig = null, asrConfig = null) {
+    const desiredConfig = this.getDesiredAgentConfig(llmConfig, ttsConfig, asrConfig);
     const agentConfig = {
-      LLM: config.LLM,
-      TTS: config.TTS,
-      ASR: config.ASR
-    }
-    return isEqual(agentConfig, defaultConfig);
+      LLM,
+      TTS,
+      ASR,
+    } = desiredConfig;
+
+    return isEqual(
+      {
+        LLM: config.LLM,
+        TTS: config.TTS,
+        ASR: config.ASR
+      },
+      {
+        LLM,
+        TTS,
+        ASR
+      }
+    );
   }
 
   async queryAgents(agentIds) {
@@ -352,7 +434,10 @@ class ZegoAIAgent {
       AgentIds: agentIds
     };
     const result = await this.sendRequest(action, body);
-    console.log("query agents result", result);
+    log('log', 'zego-ai-agent', 'queried agents', {
+      agentIds,
+      result,
+    });
     return result.Data.Agents;
   }
 
@@ -424,6 +509,7 @@ class ZegoAIAgent {
 
     const commonParams = this.generateCommonParams(action);
     const url = this.buildUrl(action, {...commonParams,'RoomId[]':roomId}, this.rtcUrl);
+    const startedAt = Date.now();
 
     const config = {
       method: "Get",
@@ -433,10 +519,30 @@ class ZegoAIAgent {
       },
       data: body || undefined,
     };
-    console.log(action, body);
-    const response = await axios(config);
-    console.log(action, JSON.stringify(response.data));
-    return response.data;
+    log('log', 'zego-ai-agent', 'sending request', {
+      action,
+      method: 'GET',
+      url,
+      roomId,
+    });
+    try {
+      const response = await axios(config);
+      log('log', 'zego-ai-agent', 'request completed', {
+        action,
+        roomId,
+        durationMs: Date.now() - startedAt,
+        response: response.data,
+      });
+      return response.data;
+    } catch (error) {
+      log('error', 'zego-ai-agent', 'request failed', {
+        action,
+        roomId,
+        durationMs: Date.now() - startedAt,
+        error: extractError(error),
+      });
+      throw error;
+    }
   }
 }
 
@@ -444,4 +550,3 @@ module.exports = {
   ZegoAIAgent,
   SYSTEM_PROMPT,
 };
-
