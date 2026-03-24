@@ -3,7 +3,7 @@ const axios = require('axios');
 
 const CONSTANTS = {
   AGENT_ID: 'ai_agent_example_1',
-  AGENT_NAME: '李浩然',
+  AGENT_NAME: '豆包',
 };
 
 class ZegoAIAgent {

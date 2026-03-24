@@ -169,7 +169,7 @@ app.get('/token', (req, res) => {
 });
 
 // ====== Group Agent 接口（Create / Join）======
-const agentName = '李浩然';
+const agentName = '豆包';
 
 app.post('/check', async (req, res) => {
   try {
