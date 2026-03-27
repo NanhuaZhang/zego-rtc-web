@@ -213,7 +213,8 @@ class ZegoAIAgent {
     return {
       Vendor: 'AliyunParaformer',
       Params: {},
-      PauseInterval: 2000,
+      VADSilenceSegmentation: 1000,
+      PauseInterval: 1000
     };
   }
 
