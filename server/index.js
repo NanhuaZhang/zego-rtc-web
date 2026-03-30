@@ -654,42 +654,28 @@ app.post('/stopRecord', async (req, res) => {
 })
 
 app.post('/recordCallback', async (req, res) => {
-  reqLog(req, 'log', 'record-callback', 'received record callback', req.body);
-
   return res.json({});
 })
 
 app.post('/commonCallback', async (req, res) => {
-  reqLog(req, 'log', 'common-callback', 'received callback', req.body);
   const {Event,RoomId,Data} = req.body || {};
   if (Event === 'AgentInstanceStatus'){
     const targetClient = clients.get(RoomId);
     if (targetClient) {
       targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n\n`);
-      reqLog(req, 'log', 'common-callback', 'forwarded AgentInstanceStatus to SSE client', {
-        RoomId,
-        status: Data?.Status,
-      });
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
-      reqLog(req, 'warn', 'common-callback', 'missing SSE client for AgentInstanceStatus', { RoomId });
       return res.json({});
     }
   }else if (Event === 'UserSpeakAction'){
     const targetClient = clients.get(RoomId);
     if (targetClient) {
       targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Action })}\n\n`);
-      reqLog(req, 'log', 'common-callback', 'forwarded UserSpeakAction to SSE client', {
-        RoomId,
-        action: Data?.Action,
-      });
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
-      reqLog(req, 'warn', 'common-callback', 'missing SSE client for UserSpeakAction', { RoomId });
       return res.json({});
     }
   }
-  reqLog(req, 'warn', 'common-callback', 'received unsupported callback event', { Event, RoomId });
   return res.json({});
 })
 
