@@ -408,7 +408,7 @@ class ZegoAIAgent {
 
   compareAgentConfig(config, llmConfig = null, ttsConfig = null, asrConfig = null) {
     const desiredConfig = this.getDesiredAgentConfig(llmConfig, ttsConfig, asrConfig);
-    const agentConfig = {
+    const {
       LLM,
       TTS,
       ASR,
