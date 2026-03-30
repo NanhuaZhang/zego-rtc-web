@@ -665,6 +665,7 @@ app.post('/commonCallback', async (req, res) => {
       targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Status })}\n\n`);
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
+      reqLog(req, 'warn', 'common-callback', 'missing SSE client for AgentInstanceStatus', { RoomId });
       return res.json({});
     }
   }else if (Event === 'UserSpeakAction'){
@@ -673,6 +674,7 @@ app.post('/commonCallback', async (req, res) => {
       targetClient.write(`data: ${JSON.stringify({ type: 'private', msg: Data?.Action })}\n\n`);
       return res.json({ success: true, info: `消息已发给 ${RoomId}` });
     } else {
+      reqLog(req, 'warn', 'common-callback', 'missing SSE client for UserSpeakAction', { RoomId });
       return res.json({});
     }
   }
